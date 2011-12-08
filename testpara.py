@@ -23,6 +23,9 @@ def printMatrix(mat):
    		 buf += "\n"
    	 buf += str(mat[i])
     print(buf)
+	
+def genereMatrix(taille):
+	return random.choice([1,1,1,3,3,3,4])
 
 
 #retourne vrai si la case d'indice "index" est sur le bord gauche de la matrice
@@ -54,22 +57,22 @@ def isAccessible(case):
 	# Calcul du nombre de voisins
 	voisins=[]
 	if not isOnRightBorder(case):
-		if matfourmi3[case+1] == State.PLEIN or matfourmi3[case+1] == State.GRAIN:
+		if matfourmi[case+1] == State.PLEIN or matfourmi[case+1] == State.GRAIN:
 			return True
 	if not isOnLeftBorder(case):
-		if matfourmi3[case-1] == State.PLEIN or matfourmi3[case-1] == State.GRAIN:
+		if matfourmi[case-1] == State.PLEIN or matfourmi[case-1] == State.GRAIN:
 			return True
 	if not isOnTopBorder(case):
-		if matfourmi3[case-taille] == State.PLEIN or matfourmi3[case-taille] == State.GRAIN:
+		if matfourmi[case-taille] == State.PLEIN or matfourmi[case-taille] == State.GRAIN:
 			return True
 	if not isOnBottomBorder(case):
-		if matfourmi3[case+taille] == State.PLEIN or matfourmi3[case+taille] == State.GRAIN:
+		if matfourmi[case+taille] == State.PLEIN or matfourmi[case+taille] == State.GRAIN:
 			return True
 	if not isOnFrontBorder(case):
-		if matfourmi3[case+taille**2] == State.PLEIN or matfourmi3[case+taille**2] == State.GRAIN:
+		if matfourmi[case+taille**2] == State.PLEIN or matfourmi[case+taille**2] == State.GRAIN:
 			return True
 	if not isOnBackBorder(case):
-		if matfourmi3[case-taille**2] == State.PLEIN or matfourmi3[case-taille**2] == State.GRAIN:
+		if matfourmi[case-taille**2] == State.PLEIN or matfourmi[case-taille**2] == State.GRAIN:
 			return True
 	return False
 
@@ -77,22 +80,22 @@ def isGrain(case):
 	# Calcul du nombre de voisins
 	voisins=[]
 	if not isOnRightBorder(case):
-		if matfourmi3[case+1] == State.VIDE or matfourmi3[case+1] == State.ACCESSIBLE:
+		if matfourmi[case+1] == State.VIDE or matfourmi[case+1] == State.ACCESSIBLE:
 			return True
 	if not isOnLeftBorder(case):
-		if matfourmi3[case-1] == State.VIDE or matfourmi3[case-1] == State.ACCESSIBLE:
+		if matfourmi[case-1] == State.VIDE or matfourmi[case-1] == State.ACCESSIBLE:
 			return True
 	if not isOnTopBorder(case):
-		if matfourmi3[case-taille] == State.VIDE or matfourmi3[case-taille] == State.ACCESSIBLE:
+		if matfourmi[case-taille] == State.VIDE or matfourmi[case-taille] == State.ACCESSIBLE:
 			return True
 	if not isOnBottomBorder(case):
-		if matfourmi3[case+taille] == State.VIDE or matfourmi3[case+taille] == State.ACCESSIBLE:
+		if matfourmi[case+taille] == State.VIDE or matfourmi[case+taille] == State.ACCESSIBLE:
 			return True
 	if not isOnFrontBorder(case):
-		if matfourmi3[case+taille**2] == State.VIDE or matfourmi3[case+taille**2] == State.ACCESSIBLE:
+		if matfourmi[case+taille**2] == State.VIDE or matfourmi[case+taille**2] == State.ACCESSIBLE:
 			return True
 	if not isOnBackBorder(case):
-		if matfourmi3[case-taille**2] == State.VIDE or matfourmi3[case-taille**2] == State.ACCESSIBLE:
+		if matfourmi[case-taille**2] == State.VIDE or matfourmi[case-taille**2] == State.ACCESSIBLE:
 			return True
 	return False
 
@@ -174,7 +177,7 @@ def transition2(case):
 		return matfourmi[case]
 
 def updateStates(case):
-	state = matfourmi3[case]
+	state = matfourmi[case]
 	if state == State.VIDE or state == State.ACCESSIBLE:
 		if isAccessible(case):
 			return State.ACCESSIBLE
@@ -194,7 +197,8 @@ def updateStates(case):
 ##########################################
 clear = lambda: os.system('clear')
 
-taille = 3
+taille = 5
+'''
 matfourmi =[0,0,0,
 1,1,1,
 3,3,3,
@@ -203,7 +207,9 @@ matfourmi =[0,0,0,
 3,3,3,
 0,0,0,
 1,1,1,
-3,3,3]
+3,3,3]'''
+matfourmi = map1 (genereMatrix, range(taille**3) )[0]
+matfourmi = map1 (updateStates, range(taille**3))[0]
 matfourmi2 = [0]*(taille**3)
 matfourmi3 = [0]*(taille**3)
 
@@ -226,3 +232,23 @@ for i in range(0, nbEtapes):
 	#matfourmi = map1(updateStates, range(taille**3))[0]
 	printMatrix(matfourmi)
 	input("press your penis to continue")
+	
+	
+	
+	
+''' FAILS
+
+Après updateStats :
+
+213
+311
+243
+
+413
+331
+243 <-- le 2 est fail
+
+331
+113
+331
+'''
