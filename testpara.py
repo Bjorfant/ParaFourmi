@@ -133,6 +133,9 @@ def listeVoisins(index, filtre):
 
 def listeVoisinsAccessibles(index):
 	return listeVoisins(index, [State.ACCESSIBLE])
+	
+def listeVoisinsGrains(index):
+	return listeVoisins(index, [State.GRAIN])
 
 def listeVoisinsActifs(case):
 	return listeVoisins(index, [State.FOURMI, State.TRANSIT])
@@ -161,10 +164,19 @@ def etatfourmivoisine(case):
 
 def transition(case):
 	etat=matfourmi[case]
-	if etat==4 or etat==5:
-		voisins = listeVoisinsAccessibles(case)
-		print("Liste des voisins accessibles :",voisins)
-		return deplacement_alea(voisins)
+	choix = random.choice([0,1])
+	
+	if etat==State.FOURMI or etat==State.TRANSIT:
+		if choix==0:
+			voisins = listeVoisinsAccessibles(case)
+			print("Liste des voisins accessibles :",voisins)
+			return deplacement_alea(voisins)
+		elif choix==1 and etat == State.FOURMI:
+			voisins = listeVoisinsGrains(case)
+			print("Liste des grains accessibles :",voisins)
+			return deplacement_alea(voisins)
+		elif choix==1 and etat == State.TRANSIT:
+			pass # Dépot de blocs
 	else:
 		return -1
 	
@@ -172,7 +184,10 @@ def transition2(case):
 	if matfourmi2[case] != -1:
 		return 1
 	elif etatfourmivoisine(case) != -1:
-		return etatfourmivoisine(case)
+		if matfourmi[case] == State.GRAIN:
+			return State.TRANSIT
+		else:
+			return etatfourmivoisine(case)
 	else:
 		return matfourmi[case]
 
