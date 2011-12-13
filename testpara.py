@@ -9,9 +9,8 @@ class State:
 	VIDE=0
 	ACCESSIBLE=1
 	PLEIN=2
-	GRAIN=3
-	FOURMI=4
-	TRANSIT=5
+	FOURMI=3
+	TRANSIT=4
 
 #affichage de la matrice
 def printMatrix(mat):
@@ -21,11 +20,17 @@ def printMatrix(mat):
    		 buf += "\n"
    	 if i%(taille**2) == 0:
    		 buf += "\n"
-   	 buf += str(mat[i])
+   	 buf += str(mat[i]) + " "
     print(buf)
 	
-def genereMatrix(taille):
-	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.GRAIN,State.GRAIN,State.GRAIN,State.FOURMI])
+def genereMatrix(elem):
+	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.PLEIN,State.PLEIN,State.PLEIN])
+
+def placeAnt(bloc):
+	if bloc == State.ACCESSIBLE:
+		if random.choice([0, 1, 2, 3, 4, 5]) < 2:
+			return State.FOURMI
+	return bloc
 
 
 #retourne vrai si la case d'indice "index" est sur le bord gauche de la matrice
@@ -57,22 +62,22 @@ def isAccessible(case):
 	# Calcul du nombre de voisins
 	voisins=[]
 	if not isOnRightBorder(case):
-		if matfourmi[case+1] == State.PLEIN or matfourmi[case+1] == State.GRAIN:
+		if matfourmi[case+1] == State.PLEIN:
 			return True
 	if not isOnLeftBorder(case):
-		if matfourmi[case-1] == State.PLEIN or matfourmi[case-1] == State.GRAIN:
+		if matfourmi[case-1] == State.PLEIN:
 			return True
 	if not isOnTopBorder(case):
-		if matfourmi[case-taille] == State.PLEIN or matfourmi[case-taille] == State.GRAIN:
+		if matfourmi[case-taille] == State.PLEIN:
 			return True
 	if not isOnBottomBorder(case):
-		if matfourmi[case+taille] == State.PLEIN or matfourmi[case+taille] == State.GRAIN:
+		if matfourmi[case+taille] == State.PLEIN:
 			return True
 	if not isOnFrontBorder(case):
-		if matfourmi[case+taille**2] == State.PLEIN or matfourmi[case+taille**2] == State.GRAIN:
+		if matfourmi[case+taille**2] == State.PLEIN:
 			return True
 	if not isOnBackBorder(case):
-		if matfourmi[case-taille**2] == State.PLEIN or matfourmi[case-taille**2] == State.GRAIN:
+		if matfourmi[case-taille**2] == State.PLEIN:
 			return True
 	return False
 
@@ -134,77 +139,67 @@ def listeVoisins(index, filtre):
 def listeVoisinsAccessibles(index):
 	return listeVoisins(index, [State.ACCESSIBLE])
 	
-def listeVoisinsGrains(index):
-	return listeVoisins(index, [State.GRAIN])
-
 def listeVoisinsActifs(case):
 	return listeVoisins(index, [State.FOURMI, State.TRANSIT])
 	
-def etatfourmivoisine(case):
-	# Calcul du nombre de voisins
+def etatFourmiVoisine(case):
 	if not isOnRightBorder(case):
-		if matfourmi2[case+1] == case:
+		if matTransitions[case+1] == case:
 			return matfourmi[case+1]
 	if not isOnLeftBorder(case):
-		if matfourmi2[case-1] == case:
+		if matTransitions[case-1] == case:
 			return matfourmi[case-1]
 	if not isOnTopBorder(case):
-		if matfourmi2[case-taille] == case:
+		if matTransitions[case-taille] == case:
 			return matfourmi[case-taille]
 	if not isOnBottomBorder(case):
-		if matfourmi2[case+taille] == case:
+		if matTransitions[case+taille] == case:
 			return matfourmi[case+taille]
 	if not isOnFrontBorder(case): # A reformuler
-		if matfourmi2[case+taille**2] == case:
+		if matTransitions[case+taille**2] == case:
 			return matfourmi[case+taille**2]
 	if not isOnBackBorder(case): # A reformuler
-		if matfourmi2[case-taille**2] == case:
+		if matTransitions[case-taille**2] == case:
 			return matfourmi[case-taille**2]
 	return -1
 
-def transition(case):
-	etat=matfourmi[case]
+# index : position dans la matrice
+# bloc ; état du bloc à la position "index"
+def transition(index, bloc):
 	choix = random.choice([0,1])
-	
-	if etat==State.FOURMI or etat==State.TRANSIT:
+	if bloc==State.FOURMI or bloc==State.TRANSIT:
 		if choix==0:
-			voisins = listeVoisinsAccessibles(case)
-			print("Liste des voisins accessibles :",voisins)
+			voisins = listeVoisinsAccessibles(index)
+			#print("Liste des voisins accessibles :",voisins)
 			return deplacement_alea(voisins)
-		elif choix==1 and etat == State.FOURMI:
-			voisins = listeVoisinsGrains(case)
-			print("Liste des grains accessibles :",voisins)
+		elif choix==1 and bloc == State.FOURMI:
+			voisins = listeVoisins(index, [State.PLEIN])
+			#print("Liste des grains accessibles :",voisins)
 			return deplacement_alea(voisins)
-		elif choix==1 and etat == State.TRANSIT:
+		elif choix==1 and bloc == State.TRANSIT:
 			pass # Dépot de blocs
 	else:
 		return -1
 	
-def transition2(case):
-	if matfourmi2[case] != -1:
+def transition2(index):
+	if matTransitions[index] != -1:
 		return 1
-	elif etatfourmivoisine(case) != -1:
-		if matfourmi[case] == State.GRAIN:
+	elif etatFourmiVoisine(index) != -1:
+		if matfourmi[index] == State.PLEIN:
 			return State.TRANSIT
 		else:
-			return etatfourmivoisine(case)
+			return etatFourmiVoisine(index)
 	else:
-		return matfourmi[case]
+		return matfourmi[index]
 
-def updateStates(case):
-	state = matfourmi[case]
-	if state == State.VIDE or state == State.ACCESSIBLE:
-		if isAccessible(case):
+def updateStates(index, bloc):
+	if bloc == State.VIDE or bloc == State.ACCESSIBLE:
+		if isAccessible(index):
 			return State.ACCESSIBLE
 		else:
 			return State.VIDE
-	if state == State.PLEIN or state == State.GRAIN:
-		if isGrain(case):
-			return State.GRAIN
-		else:
-			return State.PLEIN
 	else:	
-		return state
+		return bloc
 
 
 ##########################################
@@ -212,7 +207,7 @@ def updateStates(case):
 ##########################################
 clear = lambda: os.system('clear')
 
-taille = 5
+taille = 3
 '''
 matfourmi =[0,0,0,
 1,1,1,
@@ -223,26 +218,28 @@ matfourmi =[0,0,0,
 0,0,0,
 1,1,1,
 3,3,3]'''
-matfourmi = map1 (genereMatrix, range(taille**3) )[0]
-matfourmi = map1 (updateStates, range(taille**3))[0]
-matfourmi2 = [0]*(taille**3)
-matfourmi3 = [0]*(taille**3)
+#generation de la matrice (sans les fourmis pour ne pas avoir de fourmis volantes
+matfourmi = map1 (genereMatrix, range(taille**3))[0]
+#mise à jour des états pour les blocs vides et accessibles 
+matfourmi = map2 (updateStates, range(taille**3), matfourmi)[0]
+#placement des fourmis aléatoirement sur les blocs accessibles
+matfourmi = map1 (placeAnt, matfourmi)[0]
+matTransitions = [0]*(taille**3)
 
-nbEtapes = input("Combien d'étapes voulez vous réaliser ? \n")
-nbEtapes = int(nbEtapes)
 print("Matrice initiale")
 printMatrix(matfourmi)
+nbEtapes = input("Combien d'étapes voulez vous réaliser ? \n")
+nbEtapes = int(nbEtapes)
 
 for i in range(0, nbEtapes):
 	clear()
 	print("\nMatrice temps", str(i))
-	matfourmi2 = map1 (transition, range(taille**3) )[0]
+	matTransitions = map2 (transition, range(taille**3), matfourmi)[0]
 	print("\nMatrice temporaire")
-	printMatrix(matfourmi2)
+	printMatrix(matTransitions)
 	
 	matfourmi = map1(transition2, range(taille**3))[0]
 	#print("\nMatrice T+1")
-	#printMatrix(matfourmi3)
 	
 	#matfourmi = map1(updateStates, range(taille**3))[0]
 	printMatrix(matfourmi)
