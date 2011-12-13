@@ -25,7 +25,7 @@ def printMatrix(mat):
     print(buf)
 	
 def genereMatrix(taille):
-	return random.choice([1,1,1,3,3,3,4])
+	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.GRAIN,State.GRAIN,State.GRAIN,State.FOURMI])
 
 
 #retourne vrai si la case d'indice "index" est sur le bord gauche de la matrice
@@ -231,7 +231,7 @@ for i in range(0, nbEtapes):
 	
 	#matfourmi = map1(updateStates, range(taille**3))[0]
 	printMatrix(matfourmi)
-	input("press your penis to continue")
+	input("Appuyez sur une touche pour continuer...")
 	
 	
 	
