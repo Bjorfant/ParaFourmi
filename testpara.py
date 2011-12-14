@@ -25,9 +25,13 @@ def printMatrix(mat):
 		if mat[i] == State.FOURMI:
 			if os.name != 'nt':
 				buf += "\033[22;31m"+str(mat[i]) + " \033[m"
+			else:
+				buf += str(mat[i])
 		elif mat[i] == State.TRANSIT:
 			if os.name != 'nt':
 				buf += "\033[01;37m"+str(mat[i]) + " \033[m"
+			else:
+				buf += str(mat[i])
 		else:
 			buf += str(mat[i]) + " "
 	print(buf)
