@@ -195,7 +195,10 @@ def transition(index, bloc):
 		elif choix==1 and bloc == State.TRANSIT: #Dépot
 			logging.debug("Le dépot")
 			voisins = listeVoisins(index, [State.ACCESSIBLE])
-			return deplacement_alea(voisins)
+			if deplacement_alea(voisins)==-1:
+				return -1
+			else:
+				return -1*deplacement_alea(voisins)-2
 	else:
 		return -1
 	
@@ -203,10 +206,16 @@ def transition2(index):
 	if matTransitions[index] != -1:
 		return 1
 	elif etatFourmiVoisine(index) != -1:
-		if matfourmi[index] == State.GRAIN:
-			return State.TRANSIT
+		if index < -1:
+			if matfourmi[-1*index+2] == State.ACCESSIBLE:
+				return State.FOURMI
+			else:
+				return etatFourmiVoisine(-1*index+2)
 		else:
-			return etatFourmiVoisine(index)
+			if matfourmi[index] == State.GRAIN:
+				return State.TRANSIT
+			else:
+				return etatFourmiVoisine(index)
 	else:
 		return matfourmi[index]
 
