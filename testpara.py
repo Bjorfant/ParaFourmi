@@ -16,14 +16,19 @@ class State:
 
 #affichage de la matrice
 def printMatrix(mat):
-    buf = ""
-    for i in range(0, len(mat)):
-   	 if i%taille == 0:
-   		 buf += "\n"
-   	 if i%(taille**2) == 0:
-   		 buf += "\n"
-   	 buf += str(mat[i]) + " "
-    print(buf)
+	buf = ""
+	for i in range(0, len(mat)):
+		if i%taille == 0:
+			buf += "\n"
+		if i%(taille**2) == 0:
+			buf += "\n"
+		if mat[i] == State.FOURMI:
+			buf += "\033[22;31m"+str(mat[i]) + " \033[m"
+		elif mat[i] == State.TRANSIT:
+			buf += "\033[01;37m"+str(mat[i]) + " \033[m"
+		else:
+			buf += str(mat[i]) + " "
+	print(buf)
 	
 def genereMatrix(elem):
 	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.GRAIN,State.GRAIN,State.GRAIN])
