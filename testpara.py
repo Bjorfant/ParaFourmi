@@ -23,9 +23,11 @@ def printMatrix(mat):
 		if i%(taille**2) == 0:
 			buf += "\n"
 		if mat[i] == State.FOURMI:
-			buf += "\033[22;31m"+str(mat[i]) + " \033[m"
+			if os.name != 'nt':
+				buf += "\033[22;31m"+str(mat[i]) + " \033[m"
 		elif mat[i] == State.TRANSIT:
-			buf += "\033[01;37m"+str(mat[i]) + " \033[m"
+			if os.name != 'nt':
+				buf += "\033[01;37m"+str(mat[i]) + " \033[m"
 		else:
 			buf += str(mat[i]) + " "
 	print(buf)
@@ -222,7 +224,10 @@ def updateStates(index, bloc):
 ################ MAIN ####################
 ##########################################
 logging.basicConfig(level=logging.DEBUG)
-clear = lambda: os.system('clear')
+if os.name == 'nt':
+	clear = lambda: os.system('cls')
+else:
+	clear = lambda: os.system('clear')
 
 
 taille = 3
