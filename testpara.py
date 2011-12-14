@@ -3,14 +3,16 @@
 from datapara import *
 import random
 import os
+import logging
 
 #constante determinant l'état de chaque bloc
 class State:
 	VIDE=0
 	ACCESSIBLE=1
 	PLEIN=2
-	FOURMI=3
-	TRANSIT=4
+	GRAIN=3 # Finalement utile
+	FOURMI=4
+	TRANSIT=5
 
 #affichage de la matrice
 def printMatrix(mat):
@@ -24,7 +26,7 @@ def printMatrix(mat):
     print(buf)
 	
 def genereMatrix(elem):
-	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.PLEIN,State.PLEIN,State.PLEIN])
+	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.GRAIN,State.GRAIN,State.GRAIN])
 
 def placeAnt(bloc):
 	if bloc == State.ACCESSIBLE:
@@ -60,27 +62,27 @@ def isOnBackBorder(index):
 
 def isAccessible(case):
 	# Calcul du nombre de voisins
-	voisins=[]
 	if not isOnRightBorder(case):
-		if matfourmi[case+1] == State.PLEIN:
+		if matfourmi[case+1] == State.GRAIN:
 			return True
 	if not isOnLeftBorder(case):
-		if matfourmi[case-1] == State.PLEIN:
+		if matfourmi[case-1] == State.GRAIN:
 			return True
 	if not isOnTopBorder(case):
-		if matfourmi[case-taille] == State.PLEIN:
+		if matfourmi[case-taille] == State.GRAIN:
 			return True
 	if not isOnBottomBorder(case):
-		if matfourmi[case+taille] == State.PLEIN:
+		if matfourmi[case+taille] == State.GRAIN:
 			return True
 	if not isOnFrontBorder(case):
-		if matfourmi[case+taille**2] == State.PLEIN:
+		if matfourmi[case+taille**2] == State.GRAIN:
 			return True
 	if not isOnBackBorder(case):
-		if matfourmi[case-taille**2] == State.PLEIN:
+		if matfourmi[case-taille**2] == State.GRAIN:
 			return True
 	return False
 
+	'''
 def isGrain(case):
 	# Calcul du nombre de voisins
 	voisins=[]
@@ -102,9 +104,11 @@ def isGrain(case):
 	if not isOnBackBorder(case):
 		if matfourmi[case-taille**2] == State.VIDE or matfourmi[case-taille**2] == State.ACCESSIBLE:
 			return True
-	return False
+	return False'''
 
 def deplacement_alea(voisins):
+	logging.debug("Destinations potentielles :")
+	logging.debug(voisins)
 	if len(voisins) >= 1:
 		return random.choice(voisins)
 	else:
@@ -140,7 +144,7 @@ def listeVoisinsAccessibles(index):
 	return listeVoisins(index, [State.ACCESSIBLE])
 	
 def listeVoisinsActifs(case):
-	return listeVoisins(index, [State.FOURMI, State.TRANSIT])
+	return listeVoisins(case, [State.FOURMI, State.TRANSIT])
 	
 def etatFourmiVoisine(case):
 	if not isOnRightBorder(case):
@@ -168,16 +172,19 @@ def etatFourmiVoisine(case):
 def transition(index, bloc):
 	choix = random.choice([0,1])
 	if bloc==State.FOURMI or bloc==State.TRANSIT:
-		if choix==0:
+		logging.debug("La fourmi a l'index "+str(index)+" a choisi")
+		if choix==0: #Déplacement
+			logging.debug("Le déplacement")
 			voisins = listeVoisinsAccessibles(index)
-			#print("Liste des voisins accessibles :",voisins)
 			return deplacement_alea(voisins)
-		elif choix==1 and bloc == State.FOURMI:
-			voisins = listeVoisins(index, [State.PLEIN])
-			#print("Liste des grains accessibles :",voisins)
+		elif choix==1 and bloc == State.FOURMI: #Ramassage
+			logging.debug("Le ramassage")
+			voisins = listeVoisins(index, [State.GRAIN])
 			return deplacement_alea(voisins)
-		elif choix==1 and bloc == State.TRANSIT:
-			pass # Dépot de blocs
+		elif choix==1 and bloc == State.TRANSIT: #Dépot
+			logging.debug("Le dépot")
+			voisins = listeVoisins(index, [State.ACCESSIBLE])
+			return deplacement_alea(voisins)
 	else:
 		return -1
 	
@@ -185,7 +192,7 @@ def transition2(index):
 	if matTransitions[index] != -1:
 		return 1
 	elif etatFourmiVoisine(index) != -1:
-		if matfourmi[index] == State.PLEIN:
+		if matfourmi[index] == State.GRAIN:
 			return State.TRANSIT
 		else:
 			return etatFourmiVoisine(index)
@@ -194,10 +201,14 @@ def transition2(index):
 
 def updateStates(index, bloc):
 	if bloc == State.VIDE or bloc == State.ACCESSIBLE:
-		if isAccessible(index):
+		if isAccessible(index) and len(listeVoisinsActifs(index))<=1:
 			return State.ACCESSIBLE
 		else:
 			return State.VIDE
+	elif bloc == State.GRAIN and len(listeVoisinsActifs(index))>1:
+		return State.PLEIN
+	elif bloc == State.PLEIN and len(listeVoisinsActifs(index))<=1:
+		return State.GRAIN
 	else:	
 		return bloc
 
@@ -205,25 +216,19 @@ def updateStates(index, bloc):
 ##########################################
 ################ MAIN ####################
 ##########################################
+logging.basicConfig(level=logging.DEBUG)
 clear = lambda: os.system('clear')
 
+
 taille = 3
-'''
-matfourmi =[0,0,0,
-1,1,1,
-3,3,3,
-0,0,0,
-1,4,1,
-3,3,3,
-0,0,0,
-1,1,1,
-3,3,3]'''
+
 #generation de la matrice (sans les fourmis pour ne pas avoir de fourmis volantes
 matfourmi = map1 (genereMatrix, range(taille**3))[0]
 #mise à jour des états pour les blocs vides et accessibles 
 matfourmi = map2 (updateStates, range(taille**3), matfourmi)[0]
 #placement des fourmis aléatoirement sur les blocs accessibles
 matfourmi = map1 (placeAnt, matfourmi)[0]
+matfourmi = map2 (updateStates, range(taille**3), matfourmi)[0]
 matTransitions = [0]*(taille**3)
 
 print("Matrice initiale")
@@ -241,26 +246,7 @@ for i in range(0, nbEtapes):
 	matfourmi = map1(transition2, range(taille**3))[0]
 	#print("\nMatrice T+1")
 	
-	#matfourmi = map1(updateStates, range(taille**3))[0]
+	matfourmi = map2(updateStates, range(taille**3), matfourmi)[0]
 	printMatrix(matfourmi)
 	input("Appuyez sur une touche pour continuer...")
 	
-	
-	
-	
-''' FAILS
-
-Après updateStats :
-
-213
-311
-243
-
-413
-331
-243 <-- le 2 est fail
-
-331
-113
-331
-'''
