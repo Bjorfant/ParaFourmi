@@ -205,14 +205,15 @@ def transition2(index):
 		return matfourmi[index]
 
 def updateStates(index, bloc):
+	nbVoisinsActifs = len(listeVoisinsActifs(index))
 	if bloc == State.VIDE or bloc == State.ACCESSIBLE:
-		if isAccessible(index) and len(listeVoisinsActifs(index))<=1:
+		if isAccessible(index) and nbVoisinsActifs<=1:
 			return State.ACCESSIBLE
 		else:
 			return State.VIDE
-	elif bloc == State.GRAIN and len(listeVoisinsActifs(index))>1:
+	elif bloc == State.GRAIN and nbVoisinsActifs>1:
 		return State.PLEIN
-	elif bloc == State.PLEIN and len(listeVoisinsActifs(index))<=1:
+	elif bloc == State.PLEIN and nbVoisinsActifs<=1:
 		return State.GRAIN
 	else:	
 		return bloc
