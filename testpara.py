@@ -254,9 +254,9 @@ def updateStates(index, bloc):
 			return State.ACCESSIBLE
 		else:
 			return State.VIDE
-	elif bloc == State.GRAIN and len(listeVoisinsActifs(index))>1:
+	elif bloc == State.GRAIN and nbVoisinsActifs>1:
 		return State.GRAIN_CONFLIT
-	elif bloc == State.GRAIN_CONFLIT and len(listeVoisinsActifs(index))<=1:
+	elif bloc == State.GRAIN_CONFLIT and nbVoisinsActifs<=1:
 		return State.GRAIN
 	else:	
 		return bloc
