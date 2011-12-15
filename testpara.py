@@ -9,10 +9,13 @@ import logging
 class State:
 	VIDE=0
 	ACCESSIBLE=1
-	PLEIN=2
-	GRAIN=3 # Finalement utile
-	FOURMI=4
-	TRANSIT=5
+	ACCESSIBLE_CONFLIT=2
+	GRAIN_CONFLIT=3
+	GRAIN=4 # Finalement utile
+	FOURMI=5
+	TRANSIT=6
+
+nbFourmi = 0
 
 #affichage de la matrice
 def printMatrix(mat):
@@ -23,9 +26,15 @@ def printMatrix(mat):
 		if i%(taille**2) == 0:
 			buf += "\n"
 		if mat[i] == State.FOURMI:
-			buf += "\033[22;31m"+str(mat[i]) + " \033[m"
+			if os.name != 'nt':
+				buf += "\033[22;31m"+str(mat[i]) + " \033[m"
+			else:
+				buf += str(mat[i]) + " "
 		elif mat[i] == State.TRANSIT:
-			buf += "\033[01;37m"+str(mat[i]) + " \033[m"
+			if os.name != 'nt':
+				buf += "\033[01;37m"+str(mat[i]) + " \033[m"
+			else:
+				buf += str(mat[i]) + " "
 		else:
 			buf += str(mat[i]) + " "
 	print(buf)
@@ -34,8 +43,10 @@ def genereMatrix(elem):
 	return random.choice([State.ACCESSIBLE,State.ACCESSIBLE,State.ACCESSIBLE,State.GRAIN,State.GRAIN,State.GRAIN])
 
 def placeAnt(bloc):
+	global nbFourmi
 	if bloc == State.ACCESSIBLE:
-		if random.choice([0, 1, 2, 3, 4, 5]) < 2:
+		if random.choice([0, 1, 2, 3, 4, 5]) < 2 and nbFourmi < 1:
+			nbFourmi += 1
 			return State.FOURMI
 	return bloc
 
@@ -46,7 +57,7 @@ def isOnLeftBorder(index):
 
 #retourne vrai si la case d'indice "index" est sur le bord droit de la matrice 
 def isOnRightBorder(index):
-	return index%(taille - 1) == 0
+	return index%taille == taille - 1
 
 #retourne vrai si la case d'indice "index" est sur le bord supérieur de la matrice
 def isOnTopBorder(index):
@@ -151,25 +162,25 @@ def listeVoisinsAccessibles(index):
 def listeVoisinsActifs(case):
 	return listeVoisins(case, [State.FOURMI, State.TRANSIT])
 	
-def etatFourmiVoisine(case):
+def indexFourmiVoisine(case):
 	if not isOnRightBorder(case):
-		if matTransitions[case+1] == case:
-			return matfourmi[case+1]
+		if matTransitions[case+1] == case or matTransitions[case+1] == -1*case-2:
+			return case+1
 	if not isOnLeftBorder(case):
-		if matTransitions[case-1] == case:
-			return matfourmi[case-1]
+		if matTransitions[case-1] == case or matTransitions[case-1] == -1*case-2:
+			return case-1
 	if not isOnTopBorder(case):
-		if matTransitions[case-taille] == case:
-			return matfourmi[case-taille]
+		if matTransitions[case-taille] == case or matTransitions[case-taille] == -1*case-2:
+			return case-taille
 	if not isOnBottomBorder(case):
-		if matTransitions[case+taille] == case:
-			return matfourmi[case+taille]
+		if matTransitions[case+taille] == case or matTransitions[case+taille] == -1*case-2:
+			return case+taille
 	if not isOnFrontBorder(case): # A reformuler
-		if matTransitions[case+taille**2] == case:
-			return matfourmi[case+taille**2]
+		if matTransitions[case+taille**2] == case or matTransitions[case+taille**2] == -1*case-2:
+			return case+taille**2
 	if not isOnBackBorder(case): # A reformuler
-		if matTransitions[case-taille**2] == case:
-			return matfourmi[case-taille**2]
+		if matTransitions[case-taille**2] == case or matTransitions[case-taille**2] == -1*case-2:
+			return case-taille**2
 	return -1
 
 # index : position dans la matrice
@@ -189,20 +200,52 @@ def transition(index, bloc):
 		elif choix==1 and bloc == State.TRANSIT: #Dépot
 			logging.debug("Le dépot")
 			voisins = listeVoisins(index, [State.ACCESSIBLE])
-			return deplacement_alea(voisins)
+			if deplacement_alea(voisins)==-1:
+				return -1
+			else:
+				return -1*deplacement_alea(voisins)-2
 	else:
 		return -1
 	
 def transition2(index):
-	if matTransitions[index] != -1:
-		return 1
-	elif etatFourmiVoisine(index) != -1:
-		if matfourmi[index] == State.GRAIN:
-			return State.TRANSIT
+	val = matTransitions[index]
+	isDeparture = val != -1
+	indexFourmi = indexFourmiVoisine(index)
+	isArrival = indexFourmi != -1
+	logging.debug("La case "+str(index)+" "+str(isDeparture)+" "+str(isArrival)+" "+str(indexFourmi))
+	if isDeparture:
+		if val > -1: #cas déplacement
+			return State.ACCESSIBLE
+		else:	#cas dépot
+			return State.GRAIN
+	elif isArrival:
+		if matTransitions[indexFourmi] > -1:#cas déplacement
+			if matfourmi[index] == State.ACCESSIBLE: #cas déplacement simple
+				return matfourmi[indexFourmi] 
+			elif matfourmi[index] == State.GRAIN: #cas ramassage
+				return State.TRANSIT
+		elif matTransitions[indexFourmi] < -1:	#cas dépot
+			return State.FOURMI
 		else:
-			return etatFourmiVoisine(index)
+			logging.debug("ERREUR DE MERDE")
 	else:
 		return matfourmi[index]
+
+	'''if matTransitions[index] < -1:
+		return 1
+	elif indexFourmiVoisine(index) != -1:
+		if index < -1:
+			if matfourmi[-1*index+2] == State.ACCESSIBLE:
+				return State.FOURMI
+			else:
+				return indexFourmiVoisine(-1*index+2)
+		else:
+			if matfourmi[index] == State.GRAIN:
+				return State.TRANSIT
+			else:
+				return indexFourmiVoisine(index)
+	else:
+		return matfourmi[index]'''
 
 def updateStates(index, bloc):
 	nbVoisinsActifs = len(listeVoisinsActifs(index))
@@ -211,9 +254,9 @@ def updateStates(index, bloc):
 			return State.ACCESSIBLE
 		else:
 			return State.VIDE
-	elif bloc == State.GRAIN and nbVoisinsActifs>1:
-		return State.PLEIN
-	elif bloc == State.PLEIN and nbVoisinsActifs<=1:
+	elif bloc == State.GRAIN and len(listeVoisinsActifs(index))>1:
+		return State.GRAIN_CONFLIT
+	elif bloc == State.GRAIN_CONFLIT and len(listeVoisinsActifs(index))<=1:
 		return State.GRAIN
 	else:	
 		return bloc
@@ -223,7 +266,10 @@ def updateStates(index, bloc):
 ################ MAIN ####################
 ##########################################
 logging.basicConfig(level=logging.DEBUG)
-clear = lambda: os.system('clear')
+if os.name == 'nt':
+	clear = lambda: os.system('cls')
+else:
+	clear = lambda: os.system('clear')
 
 
 taille = 3
