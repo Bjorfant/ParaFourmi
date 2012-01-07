@@ -58,7 +58,7 @@ int isOnBackBorder(int index) {
 }
 
 
-
+/*
 bool isAccessible(int index, thrust::device_vector<int> matfourmi) {
 	// Calcul du nombre de voisins
 	if (!isOnRightBorder(index)) {
@@ -86,7 +86,62 @@ bool isAccessible(int index, thrust::device_vector<int> matfourmi) {
 			return true;
 	}
 	return false;
-}
+}*/
+
+struct moveIndex {
+
+	const int delta, maxIndex;
+
+	moveIndex(int _delta, int _maxIndex) : delta(_delta), maxIndex(_maxIndex) {}
+
+	__host__ __device__
+	int operator()(int index){
+		return (index + delta)%maxIndex;
+	}
+};
+
+struct isAccessible {
+
+	template <typename Tuple>
+	__host__ __device__
+	void operator() (Tuple t) {
+	
+		int index = thrust::get<0>(t);
+		int blocAtLeft = thrust::get<1>(t);
+		int blocAtRight = thrust::get<2>(t);
+		int blocAtTop = thrust::get<3>(t);
+		int blocAtBottom = thrust::get<4>(t);
+		int blocAtFront = thrust::get<5>(t);
+		int blocAtBack = thrust::get<6>(t);
+		
+		// Calcul du nombre de voisins
+		if (!isOnLeftBorder(index)) {
+			if (blocAtLeft == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		if (!isOnRightBorder(index)) {
+			if (blocAtRight == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		if (!isOnTopBorder(index)) {
+			if (blocAtTop == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		if (!isOnBottomBorder(index)) {
+			if (blocAtBottom == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		if (!isOnFrontBorder(index)) {
+			if (blocAtFront == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		if (!isOnBackBorder(index)) {
+			if (blocAtBack] == GRAIN)
+				thrust::get<7>(t) = true;
+		}
+		thrust::get<7>(t) = false;
+	}
+};
 
 
 int deplacement_alea(vector <int> voisins) {
@@ -195,7 +250,7 @@ struct placeAnt {
 
 struct updateStates2 {
 	
-	 template <typename Tuple>
+	template <typename Tuple>
 	__host__ __device__
 	void operator()(Tuple t) {
 		/*t(0) = matfourmi
@@ -226,15 +281,50 @@ struct updateStates2 {
 
 thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	
+	// Création des matrices décalées
+	moveIndex mv_right = moveIndex(1 ,tailleTotale);
+	moveIndex mv_left = moveIndex(-1 ,tailleTotale);
+	moveIndex mv_top = moveIndex(-taille ,tailleTotale);
+	moveIndex mv_bottom = moveIndex(taille ,tailleTotale);
+	moveIndex mv_front = moveIndex(taille*taille ,tailleTotale);
+	moveIndex mv_back = moveIndex(-taille*taille ,tailleTotale);
+	
+	counting_iterator<int> begin(0);
+	counting_iterator<int> end(tailleTotale);
+
+	vector <int> rightIndexes(tailleTotale);
+	vector <int> leftIndexes(tailleTotale);
+	vector <int> topIndexes(tailleTotale);
+	vector <int> bottomIndexes(tailleTotale);
+	vector <int> frontIndexes(tailleTotale);
+	vector <int> backIndexes(tailleTotale);
+	 
+	thrust::transform(begin, end, rightIndexes.begin(), mv_right());
+	thrust::transform(begin, end, leftIndexes.begin(), mv_left());
+	thrust::transform(begin, end, topIndexes.begin(), mv_top());
+	thrust::transform(begin, end, bottomIndexes.begin(), mv_bottom());
+	thrust::transform(begin, end, frontIndexes.begin(), mv_front());
+	thrust::transform(begin, end, backIndexes.begin(), mv_back());
+
+	
 	// Initialisation de la matrice des voisins actifs ---------- SEQUENTIEL : Modifier la fonction listeVoisinsActifs
 	thrust::host_vector<int> matNbVoisinsActifs;
 	for(int i=0 ; i<matFourmi.size() ; i++)
 		matNbVoisinsActifs.push_back(listeVoisinsActifs(i,matFourmi).size());
-		
-	// Initialisation de la matrice des booléens accessibles ---------- SEQUENTIEL : Modifier la fonction isAccessible
+	
+	
+	// Initialisation de la matrice des booléens accessibles
 	thrust::host_vector<int> matIsAccessible;
-	for(int i=0 ; i<matFourmi.size() ; i++)
-		matIsAccessible.push_back(isAccessible(i,matFourmi));
+	thrust::for_each(
+		thrust::make_zip_iterator(
+			thrust::make_tuple(begin, leftIndexes.begin(), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matIsAccessible.begin())
+		),
+		thrust::make_zip_iterator(
+			thrust::make_tuple(end, leftIndexes.end(), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matIsAccessible.end())
+		),
+		isAccessible()
+	);
+		
 		
 	// Application des conditions d'updateStates2 sur les 3 matrices transformées en tuple (la fonction transform ne prend que 2 elements max)
 	thrust::for_each(
