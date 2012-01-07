@@ -234,7 +234,7 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	// Initialisation de la matrice des booléens accessibles ---------- SEQUENTIEL : Modifier la fonction isAccessible
 	thrust::host_vector<int> matIsAccessible;
 	for(int i=0 ; i<matFourmi.size() ; i++)
-		matNbVoisinsActifs.push_back(isAccessible(i,matFourmi));
+		matIsAccessible.push_back(isAccessible(i,matFourmi));
 		
 	// Application des conditions d'updateStates2 sur les 3 matrices transformées en tuple (la fonction transform ne prend que 2 elements max)
 	thrust::for_each(
