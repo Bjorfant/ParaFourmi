@@ -22,6 +22,11 @@ using namespace std;
 	TRANSIT=6
 } State;
 
+void printMatrix(thrust::host_vector<int> matFourmi) {
+	for(int i = 0; i < taille*taille*taille; i++) {
+		cout<< matFourmi[i] << endl;
+	}
+}
 
 //retourne vrai si la case d'indice "index" est sur le bord gauche de la matrice
 
@@ -413,8 +418,8 @@ int transition(int index, int bloc) {
 	}
 	else
 		return -1;
-}
-
+}*/
+/*
 int transition2(int index) {
 	int val = matTransitions[index];
 	bool isDeparture = val != -1;
@@ -447,54 +452,59 @@ int transition2(int index) {
 int main() {
 	
 	srand ( time(NULL) );
-	
-	thrust::host_vector<int> matFourmi(taille*taille*taille);
-
 	clock_t t1;
 	clock_t t2;
 	t1 = clock();
-
-	t2=clock()-t1;
-	t1 = clock();
+	
+	int nbFourmis = 1;
+	int nbEtapes;
 	
 	// Génération de la matrice
+	thrust::host_vector<int> matFourmi(taille*taille*taille);
 	thrust::generate(matFourmi.begin(), matFourmi.end(), rand);
 	thrust::transform(matFourmi.begin(), matFourmi.end(), matFourmi.begin(), genereMatrix());
 	
-	// Placement d'une fourmi -------- A modifier : faire une boucle pour plusieurs fourmis
-	int randvalue = rand() % taille*taille*taille;
-	matFourmi[randvalue] = FOURMI;
+	// Placement d'une fourmi
+	for (int i = 0 ; i<nbFourmis ; i++) {
+		int randvalue = rand() % taille*taille*taille;
+		matFourmi[randvalue] = FOURMI;
+	}
 	
 	// Mise à jour de la matrice
 	matFourmi = updateStates(matFourmi);
 	
-	t2 = clock() - t1;
-	
-	cout << "Temps écoulé : " << t2 << endl;
+	// Création de la matrice intermédiaire
+	thrust::host_vector <int> matTransitions;
+	thrust::fill(matTransitions.begin(), matTransitions.end(), 0);
 
-	for(int i = 0; i < taille*taille*taille; i++) {
-		std::cout<< matFourmi[i] << std::endl;
-	}
-	return 0;
-}
-
-/*
-int main() {
-
-	int tailleMatrice = 3;
-	int nbEtapes = 0;
-
-	// A reprendre du fichier de tests
-
-	cout << "Matrice initiale" << endl << matfourmi << endl;
+	cout << "Matrice initiale" << endl;
+	printMatrix(matFourmi);
 	cout << "Combien d'etapes voulez vous realiser ?" << endl;
 	cin >> nbEtapes;
-
+	
+	// Boucle principale des étapes
 	for (int i=0 ; i<nbEtapes ; i++) {
 		cout << "Etape " << i << endl;
+		
+		cout << "\nMatrice temps" << i << endl;
+		
+		//thrust::transform(matFourmi.begin(), matFourmi.end(), matTransitions.begin(), transition);
+		cout << "\nMatrice temporaire" << endl;
+		printMatrix(matTransitions);
+		
+		//thrust::transform(matTransitions.begin(), matTransitions.end(), matFourmi.begin(), transition2);
+		
+		matFourmi = updateStates(matFourmi);
+		printMatrix(matFourmi);
+		
+		system("pause");
 	}
+	
+	t2 = clock() - t1;
+	cout << "Temps écoulé : " << t2 << endl;
 
-}*/
+	return 0;
+}
 
 /*
 nvcc --machine 32 -ccbin "C:\Program Files\Microsoft Visual Studio 10.0\VC\bin"  -I "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" testpara.cu -o testpara
