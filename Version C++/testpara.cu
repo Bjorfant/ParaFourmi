@@ -189,19 +189,19 @@ struct listeNbVoisinsActifs {
 				voisins.push_back(index-1);
 		if (!isOnRightBorder(index))
 			if (all || blocAtRight == filtre)
-				thrust::get<7>(t).push_back(index+1);
+				voisins.push_back(index+1);
 		if (!isOnTopBorder(index))
 			if (all || blocAtTop == filtre)
-				thrust::get<7>(t).push_back(index-taille);
+				voisins.push_back(index-taille);
 		if (!isOnBottomBorder(index))
 			if (all || blocAtBottom == filtre)
-				thrust::get<7>(t).push_back(index+taille);
+				voisins.push_back(index+taille);
 		if (!isOnFrontBorder(index))
 			if (all || blocAtFront == filtre)
-				thrust::get<7>(t).push_back(index+taille*taille);
+				voisins.push_back(index+taille*taille);
 		if (!isOnBackBorder(index))
 			if (all || blocAtBack == filtre)
-				thrust::get<7>(t).push_back(index-taille*taille);
+				voisins.push_back(index-taille*taille);
 		thrust::get<8>(t) = voisins.size();
 	}
 };
@@ -315,20 +315,33 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
 	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
 
-	/*typedef thrust::device_vector<int>::iterator IndexIterator;
-	typedef boost::permutation_iterator_generator<IndexIterator,IndexIterator>::type permutationLeft;
-	permutationLeft pbegin = thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin());
-	permutationLeft pend = thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end());*/
-	//thrust::copy_n(permutationLeft, tailleTotale, leftIndexes.begin());
 	
 	// Initialisation de la matrice des booléens accessibles
 	thrust::host_vector<int> matIsAccessible;
 	thrust::for_each(
 		thrust::make_zip_iterator(
-			thrust::make_tuple(begin, leftIndexes.begin(), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matIsAccessible.begin())
+			thrust::make_tuple(
+				begin, 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+				matIsAccessible.begin()
+			)
 		),
 		thrust::make_zip_iterator(
-			thrust::make_tuple(end, leftIndexes.end(), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matIsAccessible.end())
+			thrust::make_tuple(
+				end, 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+				matIsAccessible.end()
+			)
 		),
 		isAccessible()
 	);
@@ -338,16 +351,17 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	/*thrust::host_vector<int> matNbVoisinsActifs;
 	for(int i=0 ; i<matFourmi.size() ; i++)
 		matNbVoisinsActifs.push_back(listeVoisinsActifs(i,matFourmi).size());*/
-	thrust::host_vector<int> matNbVoisinsActifs;
+	thrust::host_vector<thrust::host_vector<int>> matVoisinsActifs;
+	thrust::host_vector<int> matNbVoisinsActifs;/*
 	thrust::for_each(
 		thrust::make_zip_iterator(
-			thrust::make_tuple(begin, leftIndexes.begin(), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matNbVoisinsActifs.begin())
+			thrust::make_tuple(begin, thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matVoisinsActifs.begin(), matNbVoisinsActifs.begin())
 		),
 		thrust::make_zip_iterator(
-			thrust::make_tuple(end, leftIndexes.end(), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matNbVoisinsActifs.end())
+			thrust::make_tuple(end, thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matVoisinsActifs.begin(), matNbVoisinsActifs.end())
 		),
 		listeNbVoisinsActifs()
-	);
+	);*/
 	
 		
 		
