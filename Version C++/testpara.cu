@@ -77,49 +77,6 @@ struct moveIndex {
 	}
 };
 
-struct isAccessible {
-
-	template <typename Tuple>
-	__host__ __device__
-	void operator() (Tuple t) {
-	
-		int index = thrust::get<0>(t);
-		int blocAtLeft = thrust::get<1>(t);
-		int blocAtRight = thrust::get<2>(t);
-		int blocAtTop = thrust::get<3>(t);
-		int blocAtBottom = thrust::get<4>(t);
-		int blocAtFront = thrust::get<5>(t);
-		int blocAtBack = thrust::get<6>(t);
-		
-		// Calcul du nombre de voisins
-		if (!isOnLeftBorder(index)) {
-			if (blocAtLeft == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		if (!isOnRightBorder(index)) {
-			if (blocAtRight == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		if (!isOnTopBorder(index)) {
-			if (blocAtTop == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		if (!isOnBottomBorder(index)) {
-			if (blocAtBottom == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		if (!isOnFrontBorder(index)) {
-			if (blocAtFront == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		if (!isOnBackBorder(index)) {
-			if (blocAtBack == GRAIN)
-				thrust::get<7>(t) = true;
-		}
-		thrust::get<7>(t) = false;
-	}
-};
-
 
 int deplacement_alea(vector <int> voisins) {
 	if (voisins.size() >= 1)
@@ -131,82 +88,6 @@ int deplacement_alea(vector <int> voisins) {
 int deplacement_alea_new(int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack) {
 	return blocAtLeft;
 }
-
-//récupère les voisins d'une case de la matrice
-//possibilité de filtrer les voisins par une liste d'état que l'on cherche 
-//si la liste est vide on renvoit tous les voisins
-/*
-vector <int> listeVoisins(int index, thrust::device_vector <int> filtre, thrust::host_vector<int> &matfourmi) {
-	vector <int> voisins;
-	bool all = filtre.empty(); //verifie s'il y a une condition
-	if (!isOnRightBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index+1]) != filtre.end())
-			voisins.push_back(index+1);
-	if (!isOnLeftBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index-1]) != filtre.end())
-			voisins.push_back(index-1);
-	if (!isOnTopBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index-taille]) != filtre.end())
-			voisins.push_back(index-taille);
-	if (!isOnBottomBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index+taille]) != filtre.end())
-			voisins.push_back(index+taille);
-	if (!isOnFrontBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index+taille*taille]) != filtre.end())
-			voisins.push_back(index+taille*taille);
-	if (!isOnBackBorder(index))
-		if (all || thrust::find(filtre.begin(), filtre.end(), matfourmi[index-taille*taille]) != filtre.end())
-			voisins.push_back(index-taille*taille);
-	return voisins;
-}
-
-vector <int> listeVoisinsAccessibles(int index, thrust::host_vector<int> &matfourmi) {
-	vector <int> v;
-	v.push_back(ACCESSIBLE);
-	return listeVoisins(index, v, matfourmi);
-}*/
-
-
-struct listeNbVoisinsActifs {
-
-	template <typename Tuple>
-	__host__ __device__
-	void operator()(Tuple t){
-
-		int filtre = FOURMI;
-		
-		int index = thrust::get<0>(t);
-		int blocAtLeft = thrust::get<1>(t);
-		int blocAtRight = thrust::get<2>(t);
-		int blocAtTop = thrust::get<3>(t);
-		int blocAtBottom = thrust::get<4>(t);
-		int blocAtFront = thrust::get<5>(t);
-		int blocAtBack = thrust::get<6>(t);
-		int voisins = 0;
-		
-		bool all = true; //verifie s'il y a une condition
-		if (!isOnLeftBorder(index))
-			if (all || blocAtLeft == filtre)
-				voisins++;
-		if (!isOnRightBorder(index))
-			if (all || blocAtRight == filtre)
-				voisins++;
-		if (!isOnTopBorder(index))
-			if (all || blocAtTop == filtre)
-				voisins++;
-		if (!isOnBottomBorder(index))
-			if (all || blocAtBottom == filtre)
-				voisins++;
-		if (!isOnFrontBorder(index))
-			if (all || blocAtFront == filtre)
-				voisins++;
-		if (!isOnBackBorder(index))
-			if (all || blocAtBack == filtre)
-				voisins++;
-		thrust::get<7>(t) = voisins;
-	}
-};
-
 
 
 /*
@@ -262,143 +143,104 @@ struct placeAnt {
 };
 
 
-
-struct updateStatesDevice {
-	
-	template <typename Tuple>
-	__host__ __device__
-	void operator()(Tuple t) {
-		/*t(0) = matfourmi
-		t(1) = voisins actifs
-		t(2) = isaccessible
-		t(3) = matfourmi
-		*/
-		int bloc = thrust::get<0>(t);
-		int nbVoisinsActifs = thrust::get<1>(t);
-		bool isAccessible = thrust::get<2>(t);
-		
-		if (bloc == VIDE || bloc == ACCESSIBLE) {
-			if (isAccessible && nbVoisinsActifs<=1)
-				thrust::get<3>(t) = ACCESSIBLE;
-			else
-				thrust::get<3>(t) = VIDE;
-		}
-		else if (bloc == GRAIN && nbVoisinsActifs>1)
-			thrust::get<3>(t) = GRAIN_CONFLIT;
-		else if (bloc == GRAIN_CONFLIT && nbVoisinsActifs<=1)
-			thrust::get<3>(t) = GRAIN;
-		else
-			thrust::get<3>(t) = bloc;
-		thrust::get<3>(t) = -1;
+int getNbVoisinsActifs(int index, int left, int right, int top, int bottom, int front, int back) {
+	int nb = 0;
+	if (!isOnLeftBorder(index)) {
+		if (left == FOURMI || left == TRANSIT) 
+			nb++;
 	}
-	
-};
-
-thrust::host_vector<int> updateStatesHost (thrust::host_vector<int> &matFourmi) {
-	
-	int tailleTotale = matFourmi.size();
-	
-	// Création des matrices décalées
-	thrust::counting_iterator<int> begin(0);
-	thrust::counting_iterator<int> end(tailleTotale);
-
-	thrust::host_vector <int> rightIndexes(tailleTotale);
-	thrust::host_vector <int> leftIndexes(tailleTotale);
-	thrust::host_vector <int> topIndexes(tailleTotale);
-	thrust::host_vector <int> bottomIndexes(tailleTotale);
-	thrust::host_vector <int> frontIndexes(tailleTotale);
-	thrust::host_vector <int> backIndexes(tailleTotale);
-	 
-	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
-	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
-	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
-	thrust::transform(begin, end, bottomIndexes.begin(), moveIndex(taille ,tailleTotale));
-	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
-	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
-
-	
-	// Initialisation de la matrice des booléens accessibles
-	thrust::host_vector<int> matIsAccessible;
-	thrust::for_each(
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				begin, 
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
-				matIsAccessible.begin()
-			)
-		),
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				end, 
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
-				matIsAccessible.end()
-			)
-		),
-		isAccessible()
-	);
-	
-	
-	// Initialisation de la matrice des voisins actifs
-	thrust::host_vector<thrust::host_vector<int>> matVoisinsActifs;
-	thrust::host_vector<int> matNbVoisinsActifs;
-	
-	thrust::for_each(
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				begin, 
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
-				matNbVoisinsActifs.begin()
-			)
-		),
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				end, 
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
-				matNbVoisinsActifs.end()
-			)
-		),
-		listeNbVoisinsActifs()
-	);
-	
-		
-		
-	// Application des conditions d'updateStates2 sur les 3 matrices transformées en tuple (la fonction transform ne prend que 2 elements max)
-	thrust::for_each(
-		thrust::make_zip_iterator(
-			thrust::make_tuple(matFourmi.begin(), matNbVoisinsActifs.begin(), matIsAccessible.begin(), matFourmi.begin())
-		),
-		thrust::make_zip_iterator(
-			thrust::make_tuple(matFourmi.end(), matNbVoisinsActifs.end(), matIsAccessible.end(), matFourmi.end())
-		),
-		updateStatesDevice()
-	);
-	
-	return matFourmi;
+	if (!isOnRightBorder(index)) {
+		if (right == FOURMI || right == TRANSIT) 
+			nb++;
+	}
+	if (!isOnTopBorder(index)) {
+		if (top == FOURMI || top == TRANSIT) 
+			nb++;
+	}
+	if (!isOnBottomBorder(index)) {
+		if (bottom == FOURMI || bottom == TRANSIT) 
+			nb++;
+	}
+	if (!isOnFrontBorder(index)) {
+		if (front == FOURMI || front == TRANSIT) 
+			nb++;
+	}
+	if(!isOnBackBorder(index)) {
+		if (back == FOURMI || back == TRANSIT) 
+			nb++;
+	} 
+	return nb;
 }
+
+bool isAccessible(int index, int left, int right, int top, int bottom, int front, int back) {
+	if (!isOnLeftBorder(index)) { 
+		return left == GRAIN || left == GRAIN_CONFLIT;
+	}
+	if (!isOnRightBorder(index)) {
+		return right == GRAIN || right == GRAIN_CONFLIT;
+	}
+	if (!isOnTopBorder(index)) {
+		return top == GRAIN || top == GRAIN_CONFLIT;
+	}
+	if (!isOnBottomBorder(index)) {
+		return bottom == GRAIN || bottom == GRAIN_CONFLIT;
+	}
+	if (!isOnFrontBorder(index)) {
+		return front == GRAIN || front == GRAIN_CONFLIT;
+	}
+	if (!isOnBackBorder(index)) {
+		return back == GRAIN || back == GRAIN_CONFLIT;
+	}
+	return false;
+}
+
+//la fonction updateStates sert à garder l'intégrité des données présentes dans la matrice
+//on vérifie ici que tous les états sont cohérents vis à vis du modèle adopté
+//elle prend en paramètres un tuple de 8 valeurs dont :
+//- l'indice auquel on se trouve dans la matrice
+//- la valeur du bloc courant 
+//- les 6 valeurs des des blocs voisins
+struct updateStates {
+
+template <typename Tuple>
+__host__ __device__
+	void operator()(Tuple t) {
+		int index = thrust::get<0>(t);
+		int bloc = thrust::get<1>(t);
+		int blocAtLeft = thrust::get<2>(t);
+		int blocAtRight = thrust::get<3>(t);
+		int blocAtTop = thrust::get<4>(t);
+		int blocAtBottom = thrust::get<5>(t);
+		int blocAtFront = thrust::get<6>(t);
+		int blocAtBack = thrust::get<7>(t);
+
+		//dans le cas ou le bloc courant est vide ou accessible on vérifie que ses prorpiétés correspondent bien à son état
+		if(bloc == ACCESSIBLE || bloc == ACCESSIBLE_CONFLIT) {
+			if(!isAccessible(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack))
+			thrust::get<8>(t) = VIDE; 
+			else {
+			if(getNbVoisinsActifs(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack) > 1)
+			thrust::get<8>(t) = ACCESSIBLE_CONFLIT;
+			else
+			thrust::get<8>(t) = ACCESSIBLE;
+			}
+		} else if (bloc == GRAIN || bloc == GRAIN_CONFLIT) {
+			//Dans le cas ou le bloc est un grain ou du plein il faut vérifier que ses propriétés correspondent bien à son état 
+			if (getNbVoisinsActifs(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack) > 1)
+			thrust::get<8>(t) = GRAIN_CONFLIT;
+			else
+			thrust::get<8>(t) = GRAIN;
+		} else {
+			//si le bloc est de type fourmi ou transit alors il ne change pas d'état 
+			//on retourne sa valeur inchangée
+			thrust::get<8>(t) = bloc;
+		}
+	}
+	};
 
 
 // On a besoin de
-struct transitionDevice {
+struct transition1 {
 
 	template <typename Tuple>
 	__host__ __device__
@@ -434,58 +276,6 @@ struct transitionDevice {
 			thrust::get<7>(t) = -1;
 	}
 };
-
-thrust::host_vector<int> transitionHost (thrust::host_vector<int> &matFourmi, thrust::host_vector<int> &matTransitions) {
-
-	int tailleTotale = matFourmi.size();
-	
-	// Création des matrices décalées
-	thrust::counting_iterator<int> begin(0);
-	thrust::counting_iterator<int> end(tailleTotale);
-
-	thrust::host_vector <int> rightIndexes(tailleTotale);
-	thrust::host_vector <int> leftIndexes(tailleTotale);
-	thrust::host_vector <int> topIndexes(tailleTotale);
-	thrust::host_vector <int> bottomIndexes(tailleTotale);
-	thrust::host_vector <int> frontIndexes(tailleTotale);
-	thrust::host_vector <int> backIndexes(tailleTotale);
-	 
-	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
-	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
-	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
-	thrust::transform(begin, end, bottomIndexes.begin(), moveIndex(taille ,tailleTotale));
-	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
-	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
-	
-	thrust::for_each(
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				matFourmi.begin(),
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
-				matTransitions.begin()
-			)
-		),
-		thrust::make_zip_iterator(
-			thrust::make_tuple(
-				matFourmi.end(), 
-				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
-				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
-				matTransitions.end()
-			)
-		),
-		transitionDevice()
-	);
-	return matTransitions;
-}
 
 /*
 int transition2(int index) {
@@ -524,8 +314,6 @@ int main() {
 	clock_t t2;
 	t1 = clock();
 	
-	int nbFourmis = 1;
-	int nbEtapes;
 	
 	// Génération de la matrice
 	thrust::host_vector<int> matFourmi(taille*taille*taille);
@@ -533,13 +321,63 @@ int main() {
 	thrust::transform(matFourmi.begin(), matFourmi.end(), matFourmi.begin(), genereMatrix());
 	
 	// Placement d'une fourmi
+	int nbFourmis = 1;
 	for (int i = 0 ; i<nbFourmis ; i++) {
 		int randvalue = rand() % taille*taille*taille;
 		matFourmi[randvalue] = FOURMI;
 	}
 	
-	// Mise à jour de la matrice
-	matFourmi = updateStatesHost(matFourmi);
+
+	// Création des matrices décalées
+	int tailleTotale = matFourmi.size();
+	thrust::counting_iterator<int> begin(0);
+	thrust::counting_iterator<int> end(tailleTotale);
+
+	thrust::host_vector <int> rightIndexes(tailleTotale);
+	thrust::host_vector <int> leftIndexes(tailleTotale);
+	thrust::host_vector <int> topIndexes(tailleTotale);
+	thrust::host_vector <int> bottomIndexes(tailleTotale);
+	thrust::host_vector <int> frontIndexes(tailleTotale);
+	thrust::host_vector <int> backIndexes(tailleTotale);
+	 
+	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
+	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
+	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
+	thrust::transform(begin, end, bottomIndexes.begin(), moveIndex(taille ,tailleTotale));
+	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
+	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
+	
+	
+	//Première mise à jour de la matrice
+	thrust::for_each(
+		thrust::make_zip_iterator(
+			thrust::make_tuple(
+				begin,
+				matFourmi.begin(),
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+				matFourmi.begin()
+			)
+		),
+		thrust::make_zip_iterator(
+			thrust::make_tuple(
+				end,
+				matFourmi.end(), 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+				matFourmi.end()
+			)
+		),
+		updateStates()
+	);
 	
 	// Création de la matrice intermédiaire
 	thrust::host_vector <int> matTransitions;
@@ -547,8 +385,12 @@ int main() {
 
 	cout << "Matrice initiale" << endl;
 	printMatrix(matFourmi);
+	
+	// Demande du nombre d'étapes à l'utilisateur
+	int nbEtapes;
 	cout << "Combien d'etapes voulez vous realiser ?" << endl;
 	cin >> nbEtapes;
+	
 	
 	// Boucle principale des étapes
 	for (int i=0 ; i<nbEtapes ; i++) {
@@ -557,12 +399,64 @@ int main() {
 		cout << "\nMatrice temps" << i << endl;
 		
 		// Transition 1
-		matTransitions = transitionHost(matFourmi, matTransitions);
+		thrust::for_each(
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					matFourmi.begin(),
+					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+					matTransitions.begin()
+				)
+			),
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					matFourmi.end(), 
+					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+					matTransitions.end()
+				)
+			),
+			transition1()
+		);
 		cout << "\nMatrice temporaire" << endl;
 		printMatrix(matTransitions);
 		
 		// Transition 2
-		//thrust::transform(matTransitions.begin(), matTransitions.end(), matFourmi.begin(), transition2);
+		/*thrust::for_each(
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					matTransitions.begin(),
+					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+					matFourmi.begin()
+				)
+			),
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					matTransitions.end(), 
+					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+					matFourmi.end()
+				)
+			),
+			transition1()
+		);*/
 		
 		matFourmi = updateStatesHost(matFourmi);
 		printMatrix(matFourmi);
