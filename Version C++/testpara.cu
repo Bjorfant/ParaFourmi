@@ -1,13 +1,15 @@
 #include <thrust/for_each.h>
 #include <thrust/device_vector.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <iostream>
 #include <vector>
 #include <cstdlib>
 
-using namespace std;
+#define taille 3
 
-int taille = 3;
+using namespace std;
 
 
  typedef enum {
@@ -58,36 +60,6 @@ int isOnBackBorder(int index) {
 }
 
 
-/*
-bool isAccessible(int index, thrust::device_vector<int> matfourmi) {
-	// Calcul du nombre de voisins
-	if (!isOnRightBorder(index)) {
-		if (matfourmi[index+1] == GRAIN)
-			return true;
-	}
-	if (!isOnLeftBorder(index)) {
-		if (matfourmi[index-1] == GRAIN)
-			return true;
-	}
-	if (!isOnTopBorder(index)) {
-		if (matfourmi[index-taille] == GRAIN)
-			return true;
-	}
-	if (!isOnBottomBorder(index)) {
-		if (matfourmi[index+taille] == GRAIN)
-			return true;
-	}
-	if (!isOnFrontBorder(index)) {
-		if (matfourmi[index+taille*taille] == GRAIN)
-			return true;
-	}
-	if (!isOnBackBorder(index)) {
-		if (matfourmi[index-taille*taille] == GRAIN)
-			return true;
-	}
-	return false;
-}*/
-
 struct moveIndex {
 
 	const int delta, maxIndex;
@@ -136,7 +108,7 @@ struct isAccessible {
 				thrust::get<7>(t) = true;
 		}
 		if (!isOnBackBorder(index)) {
-			if (blocAtBack] == GRAIN)
+			if (blocAtBack == GRAIN)
 				thrust::get<7>(t) = true;
 		}
 		thrust::get<7>(t) = false;
@@ -154,7 +126,7 @@ int deplacement_alea(vector <int> voisins) {
 //récupère les voisins d'une case de la matrice
 //possibilité de filtrer les voisins par une liste d'état que l'on cherche 
 //si la liste est vide on renvoit tous les voisins
-
+/*
 vector <int> listeVoisins(int index, thrust::device_vector <int> filtre, thrust::host_vector<int> &matfourmi) {
 	vector <int> voisins;
 	bool all = filtre.empty(); //verifie s'il y a une condition
@@ -178,8 +150,7 @@ vector <int> listeVoisins(int index, thrust::device_vector <int> filtre, thrust:
 			voisins.push_back(index-taille*taille);
 	return voisins;
 }
-
-
+	
 vector <int> listeVoisinsAccessibles(int index, thrust::host_vector<int> &matfourmi) {
 	vector <int> v;
 	v.push_back(ACCESSIBLE);
@@ -193,6 +164,49 @@ vector <int> listeVoisinsActifs(int index, thrust::host_vector<int> &matfourmi) 
 	v.push_back(TRANSIT);
 	return listeVoisins(index, v, matfourmi);
 }
+*/
+
+struct listeNbVoisinsActifs {
+
+	template <typename Tuple>
+	__host__ __device__
+	void operator()(Tuple t){
+
+		int filtre = FOURMI;
+		
+		int index = thrust::get<0>(t);
+		int blocAtLeft = thrust::get<1>(t);
+		int blocAtRight = thrust::get<2>(t);
+		int blocAtTop = thrust::get<3>(t);
+		int blocAtBottom = thrust::get<4>(t);
+		int blocAtFront = thrust::get<5>(t);
+		int blocAtBack = thrust::get<6>(t);
+		thrust::device_vector<int> voisins = thrust::get<7>(t);
+		
+		bool all = true; //verifie s'il y a une condition
+		if (!isOnLeftBorder(index))
+			if (all || blocAtLeft == filtre)
+				voisins.push_back(index-1);
+		if (!isOnRightBorder(index))
+			if (all || blocAtRight == filtre)
+				thrust::get<7>(t).push_back(index+1);
+		if (!isOnTopBorder(index))
+			if (all || blocAtTop == filtre)
+				thrust::get<7>(t).push_back(index-taille);
+		if (!isOnBottomBorder(index))
+			if (all || blocAtBottom == filtre)
+				thrust::get<7>(t).push_back(index+taille);
+		if (!isOnFrontBorder(index))
+			if (all || blocAtFront == filtre)
+				thrust::get<7>(t).push_back(index+taille*taille);
+		if (!isOnBackBorder(index))
+			if (all || blocAtBack == filtre)
+				thrust::get<7>(t).push_back(index-taille*taille);
+		thrust::get<8>(t) = voisins.size();
+	}
+};
+
+
 
 /*
 int indexFourmiVoisine(int index, , vector<int> &matTransitions) {
@@ -281,37 +295,31 @@ struct updateStates2 {
 
 thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	
+	int tailleTotale = matFourmi.size();
+	
 	// Création des matrices décalées
-	moveIndex mv_right = moveIndex(1 ,tailleTotale);
-	moveIndex mv_left = moveIndex(-1 ,tailleTotale);
-	moveIndex mv_top = moveIndex(-taille ,tailleTotale);
-	moveIndex mv_bottom = moveIndex(taille ,tailleTotale);
-	moveIndex mv_front = moveIndex(taille*taille ,tailleTotale);
-	moveIndex mv_back = moveIndex(-taille*taille ,tailleTotale);
-	
-	counting_iterator<int> begin(0);
-	counting_iterator<int> end(tailleTotale);
+	thrust::counting_iterator<int> begin(0);
+	thrust::counting_iterator<int> end(tailleTotale);
 
-	vector <int> rightIndexes(tailleTotale);
-	vector <int> leftIndexes(tailleTotale);
-	vector <int> topIndexes(tailleTotale);
-	vector <int> bottomIndexes(tailleTotale);
-	vector <int> frontIndexes(tailleTotale);
-	vector <int> backIndexes(tailleTotale);
+	thrust::host_vector <int> rightIndexes(tailleTotale);
+	thrust::host_vector <int> leftIndexes(tailleTotale);
+	thrust::host_vector <int> topIndexes(tailleTotale);
+	thrust::host_vector <int> bottomIndexes(tailleTotale);
+	thrust::host_vector <int> frontIndexes(tailleTotale);
+	thrust::host_vector <int> backIndexes(tailleTotale);
 	 
-	thrust::transform(begin, end, rightIndexes.begin(), mv_right());
-	thrust::transform(begin, end, leftIndexes.begin(), mv_left());
-	thrust::transform(begin, end, topIndexes.begin(), mv_top());
-	thrust::transform(begin, end, bottomIndexes.begin(), mv_bottom());
-	thrust::transform(begin, end, frontIndexes.begin(), mv_front());
-	thrust::transform(begin, end, backIndexes.begin(), mv_back());
+	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
+	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
+	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
+	thrust::transform(begin, end, bottomIndexes.begin(), moveIndex(taille ,tailleTotale));
+	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
+	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
 
-	
-	// Initialisation de la matrice des voisins actifs ---------- SEQUENTIEL : Modifier la fonction listeVoisinsActifs
-	thrust::host_vector<int> matNbVoisinsActifs;
-	for(int i=0 ; i<matFourmi.size() ; i++)
-		matNbVoisinsActifs.push_back(listeVoisinsActifs(i,matFourmi).size());
-	
+	/*typedef thrust::device_vector<int>::iterator IndexIterator;
+	typedef boost::permutation_iterator_generator<IndexIterator,IndexIterator>::type permutationLeft;
+	permutationLeft pbegin = thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin());
+	permutationLeft pend = thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end());*/
+	//thrust::copy_n(permutationLeft, tailleTotale, leftIndexes.begin());
 	
 	// Initialisation de la matrice des booléens accessibles
 	thrust::host_vector<int> matIsAccessible;
@@ -324,6 +332,23 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 		),
 		isAccessible()
 	);
+	
+	
+	// Initialisation de la matrice des voisins actifs
+	/*thrust::host_vector<int> matNbVoisinsActifs;
+	for(int i=0 ; i<matFourmi.size() ; i++)
+		matNbVoisinsActifs.push_back(listeVoisinsActifs(i,matFourmi).size());*/
+	thrust::host_vector<int> matNbVoisinsActifs;
+	thrust::for_each(
+		thrust::make_zip_iterator(
+			thrust::make_tuple(begin, leftIndexes.begin(), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matNbVoisinsActifs.begin())
+		),
+		thrust::make_zip_iterator(
+			thrust::make_tuple(end, leftIndexes.end(), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matNbVoisinsActifs.end())
+		),
+		listeNbVoisinsActifs()
+	);
+	
 		
 		
 	// Application des conditions d'updateStates2 sur les 3 matrices transformées en tuple (la fonction transform ne prend que 2 elements max)
@@ -399,8 +424,6 @@ int transition2(int index) {
 
 int main() {
 	
-	int taille = 3;
-	
 	srand ( time(NULL) );
 	
 	thrust::host_vector<int> matFourmi(taille*taille*taille);
@@ -424,6 +447,8 @@ int main() {
 	matFourmi = updateStates(matFourmi);
 	
 	t2 = clock() - t1;
+	
+	cout << "Temps écoulé : " << t2 << endl;
 
 	for(int i = 0; i < taille*taille*taille; i++) {
 		std::cout<< matFourmi[i] << std::endl;
@@ -450,5 +475,5 @@ int main() {
 }*/
 
 /*
-nvcc  --machine 32 -ccbin "C:\Program Files\Microsoft Visual Studio 10.0\VC\bin"  -I "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" test.cu -o test
+nvcc --machine 32 -ccbin "C:\Program Files\Microsoft Visual Studio 10.0\VC\bin"  -I "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" testpara.cu -o testpara
 */
