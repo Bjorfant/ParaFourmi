@@ -150,21 +150,13 @@ vector <int> listeVoisins(int index, thrust::device_vector <int> filtre, thrust:
 			voisins.push_back(index-taille*taille);
 	return voisins;
 }
-	
+
 vector <int> listeVoisinsAccessibles(int index, thrust::host_vector<int> &matfourmi) {
 	vector <int> v;
 	v.push_back(ACCESSIBLE);
 	return listeVoisins(index, v, matfourmi);
-}
+}*/
 
-
-vector <int> listeVoisinsActifs(int index, thrust::host_vector<int> &matfourmi) {
-	vector <int> v;
-	v.push_back(ACCESSIBLE);
-	v.push_back(TRANSIT);
-	return listeVoisins(index, v, matfourmi);
-}
-*/
 
 struct listeNbVoisinsActifs {
 
@@ -181,28 +173,28 @@ struct listeNbVoisinsActifs {
 		int blocAtBottom = thrust::get<4>(t);
 		int blocAtFront = thrust::get<5>(t);
 		int blocAtBack = thrust::get<6>(t);
-		thrust::device_vector<int> voisins = thrust::get<7>(t);
+		int voisins = 0;
 		
 		bool all = true; //verifie s'il y a une condition
 		if (!isOnLeftBorder(index))
 			if (all || blocAtLeft == filtre)
-				voisins.push_back(index-1);
+				voisins++;
 		if (!isOnRightBorder(index))
 			if (all || blocAtRight == filtre)
-				voisins.push_back(index+1);
+				voisins++;
 		if (!isOnTopBorder(index))
 			if (all || blocAtTop == filtre)
-				voisins.push_back(index-taille);
+				voisins++;
 		if (!isOnBottomBorder(index))
 			if (all || blocAtBottom == filtre)
-				voisins.push_back(index+taille);
+				voisins++;
 		if (!isOnFrontBorder(index))
 			if (all || blocAtFront == filtre)
-				voisins.push_back(index+taille*taille);
+				voisins++;
 		if (!isOnBackBorder(index))
 			if (all || blocAtBack == filtre)
-				voisins.push_back(index-taille*taille);
-		thrust::get<8>(t) = voisins.size();
+				voisins++;
+		thrust::get<7>(t) = voisins;
 	}
 };
 
@@ -348,20 +340,36 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 	
 	
 	// Initialisation de la matrice des voisins actifs
-	/*thrust::host_vector<int> matNbVoisinsActifs;
-	for(int i=0 ; i<matFourmi.size() ; i++)
-		matNbVoisinsActifs.push_back(listeVoisinsActifs(i,matFourmi).size());*/
 	thrust::host_vector<thrust::host_vector<int>> matVoisinsActifs;
-	thrust::host_vector<int> matNbVoisinsActifs;/*
+	thrust::host_vector<int> matNbVoisinsActifs;
+	
 	thrust::for_each(
 		thrust::make_zip_iterator(
-			thrust::make_tuple(begin, thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), rightIndexes.begin(), topIndexes.begin(), bottomIndexes.begin(), frontIndexes.begin(), backIndexes.begin(), matVoisinsActifs.begin(), matNbVoisinsActifs.begin())
+			thrust::make_tuple(
+				begin, 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+				matNbVoisinsActifs.begin()
+			)
 		),
 		thrust::make_zip_iterator(
-			thrust::make_tuple(end, thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), rightIndexes.end(), topIndexes.end(), bottomIndexes.end(), frontIndexes.end(), backIndexes.end(), matVoisinsActifs.begin(), matNbVoisinsActifs.end())
+			thrust::make_tuple(
+				end, 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+				matNbVoisinsActifs.end()
+			)
 		),
 		listeNbVoisinsActifs()
-	);*/
+	);
 	
 		
 		
@@ -405,8 +413,8 @@ int transition(int index, int bloc) {
 	}
 	else
 		return -1;
-}*/
-/*
+}
+
 int transition2(int index) {
 	int val = matTransitions[index];
 	bool isDeparture = val != -1;
@@ -433,8 +441,8 @@ int transition2(int index) {
 	}
 	else
 		return matfourmi[index];
-}
-*/
+}*/
+
 
 int main() {
 	
