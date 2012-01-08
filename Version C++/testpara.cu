@@ -10,17 +10,24 @@
 #define taille 3
 
 using namespace std;
-
+/*********************************************
+MODELE DE DONNEES
+*********************************************/
 
  typedef enum {
-	VIDE=0,
-	ACCESSIBLE=1,
-	ACCESSIBLE_CONFLIT=2,
-	GRAIN_CONFLIT=3,
-	GRAIN=4,
-	FOURMI=5,
-	TRANSIT=6
+	VIDE=0,			//une case qui est complètement isolée des blocs pleins
+	ACCESSIBLE=1,	//une case qui a au moins un voisin grain
+	ACCESSIBLE_CONFLIT=2,	//une case qui est accessible et a au moins deux voisins actifs
+	GRAIN_CONFLIT=3,	//une case grain qui a au moins deux voisin actifs
+	GRAIN=4,		//une case de terre
+	FOURMI=5,		//une fourmi
+	TRANSIT=6		//une fourmi transportant un bloc
 } State;
+
+
+/*********************************************
+FONCTIONS UTILES
+*********************************************/
 
 void printMatrix(thrust::host_vector<int> matFourmi) {
 	for(int i = 0; i < taille*taille*taille; i++) {
@@ -65,10 +72,12 @@ int isOnBackBorder(int index) {
 }
 
 
+//décale un indice d'un vecteur d'une certaine valeur. 
+//Permet de créer un vecteur de mappage pour décaller un vecteur de façon cyclique
 struct moveIndex {
-
 	const int delta, maxIndex;
 
+	//la stucture prend le décalage à appliquer ainsi que l'indice maximum du vecteur
 	moveIndex(int _delta, int _maxIndex) : delta(_delta), maxIndex(_maxIndex) {}
 
 	__host__ __device__
@@ -114,6 +123,8 @@ int indexFourmiVoisine(int index, , vector<int> &matTransitions) {
 }*/
 
 
+//genère une matrice aléatoire constituée de grains et de bloc accessibles 
+//cette matrice nécéssite d'être retravaillée par la suite pour la cohérence des données
 struct genereMatrix {
 	__host__ __device__
 	int operator()(int bloc) {
@@ -125,24 +136,9 @@ struct genereMatrix {
 	}
 };
 
-struct placeAnt {
-	const int a;
 
-	placeAnt(int _a) : a(_a) {}
-	
-	__host__ __device__
-	int operator()(int bloc) {
-		if (bloc == ACCESSIBLE)
-			
-			//if (a%6 < 2 && getNbFourmi() < 1) {
-				//nbFourmi += 1;
-				return FOURMI;
-			//}
-		return bloc;
-	}
-};
-
-
+//retourne le nombre de voisins actifs dans l'entourage de la case à la position "index" dans la matrice
+//un voisin actif est une fourmi simple ou une fourmi transportant un bloc
 int getNbVoisinsActifs(int index, int left, int right, int top, int bottom, int front, int back) {
 	int nb = 0;
 	if (!isOnLeftBorder(index)) {
@@ -172,6 +168,7 @@ int getNbVoisinsActifs(int index, int left, int right, int top, int bottom, int 
 	return nb;
 }
 
+//retourne vrai si la case d'indice "index" est accessible 
 bool isAccessible(int index, int left, int right, int top, int bottom, int front, int back) {
 	if (!isOnLeftBorder(index)) { 
 		return left == GRAIN || left == GRAIN_CONFLIT;
@@ -193,6 +190,12 @@ bool isAccessible(int index, int left, int right, int top, int bottom, int front
 	}
 	return false;
 }
+
+
+
+/*********************************************
+FONCTIONS PRINCIPALES DES BOUCLES DE SIMULATION
+*********************************************/
 
 //la fonction updateStates sert à garder l'intégrité des données présentes dans la matrice
 //on vérifie ici que tous les états sont cohérents vis à vis du modèle adopté
