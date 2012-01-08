@@ -128,6 +128,10 @@ int deplacement_alea(vector <int> voisins) {
 		return -1;
 }
 
+int deplacement_alea_new(int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack) {
+	return blocAtLeft;
+}
+
 //récupère les voisins d'une case de la matrice
 //possibilité de filtrer les voisins par une liste d'état que l'on cherche 
 //si la liste est vide on renvoit tous les voisins
@@ -259,7 +263,7 @@ struct placeAnt {
 
 
 
-struct updateStates2 {
+struct updateStatesDevice {
 	
 	template <typename Tuple>
 	__host__ __device__
@@ -290,7 +294,7 @@ struct updateStates2 {
 	
 };
 
-thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
+thrust::host_vector<int> updateStatesHost (thrust::host_vector<int> &matFourmi) {
 	
 	int tailleTotale = matFourmi.size();
 	
@@ -386,39 +390,103 @@ thrust::host_vector<int> updateStates (thrust::host_vector<int> &matFourmi) {
 		thrust::make_zip_iterator(
 			thrust::make_tuple(matFourmi.end(), matNbVoisinsActifs.end(), matIsAccessible.end(), matFourmi.end())
 		),
-		updateStates2()
+		updateStatesDevice()
 	);
 	
 	return matFourmi;
 }
 
-/*
-// index : position dans la matrice
-// bloc ; état du bloc à la position "index"
-int transition(int index, int bloc) {
-	int choix = rand() % 2;
-	if (bloc==FOURMI || bloc==TRANSIT) {
-		if (choix==0) { //Déplacement
-			voisins = listeVoisinsAccessibles(index);
-			return deplacement_alea(voisins);
+
+// On a besoin de
+struct transitionDevice {
+
+	template <typename Tuple>
+	__host__ __device__
+	void operator() (Tuple t) {
+	
+		int bloc = thrust::get<0>(t);
+		int blocAtLeft = thrust::get<1>(t);
+		int blocAtRight = thrust::get<2>(t);
+		int blocAtTop = thrust::get<3>(t);
+		int blocAtBottom = thrust::get<4>(t);
+		int blocAtFront = thrust::get<5>(t);
+		int blocAtBack = thrust::get<6>(t);
+		
+		int choix = rand() % 2;
+		if (bloc==FOURMI || bloc==TRANSIT) {
+			if (choix==0) { //Déplacement
+				thrust::get<7>(t) = deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack);
+			}
+			else if (choix==1 && bloc == FOURMI) { //Ramassage
+				//vector <int> tmp;
+				//tmp.push_back(GRAIN);
+				//vector <int> voisins = listeVoisins(index, tmp);
+				thrust::get<7>(t) = deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack);
+			}
+			else if (choix==1 && bloc == TRANSIT) { //Dépot
+				if (deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack)==-1)
+					thrust::get<7>(t) = -1;
+				else
+					thrust::get<7>(t) = -1*deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack)-2;
+			}
 		}
-		else if (choix==1 && bloc == FOURMI) { //Ramassage
-			vector <int> tmp;
-			tmp.push_back(GRAIN);
-			vector <int> voisins = listeVoisins(index, tmp);
-			return deplacement_alea(voisins);
-		}
-		else if (choix==1 && bloc == TRANSIT) { //Dépot
-			vector <int> voisins = listeVoisinsAccessibles(index);
-			if (deplacement_alea(voisins)==-1)
-				return -1;
-			else:
-				return -1*deplacement_alea(voisins)-2;
-		}
+		else
+			thrust::get<7>(t) = -1;
 	}
-	else
-		return -1;
-}*/
+};
+
+thrust::host_vector<int> transitionHost (thrust::host_vector<int> &matFourmi, thrust::host_vector<int> &matTransitions) {
+
+	int tailleTotale = matFourmi.size();
+	
+	// Création des matrices décalées
+	thrust::counting_iterator<int> begin(0);
+	thrust::counting_iterator<int> end(tailleTotale);
+
+	thrust::host_vector <int> rightIndexes(tailleTotale);
+	thrust::host_vector <int> leftIndexes(tailleTotale);
+	thrust::host_vector <int> topIndexes(tailleTotale);
+	thrust::host_vector <int> bottomIndexes(tailleTotale);
+	thrust::host_vector <int> frontIndexes(tailleTotale);
+	thrust::host_vector <int> backIndexes(tailleTotale);
+	 
+	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
+	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
+	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
+	thrust::transform(begin, end, bottomIndexes.begin(), moveIndex(taille ,tailleTotale));
+	thrust::transform(begin, end, frontIndexes.begin(), moveIndex(taille*taille ,tailleTotale));
+	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
+	
+	thrust::for_each(
+		thrust::make_zip_iterator(
+			thrust::make_tuple(
+				matFourmi.begin(),
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
+				matTransitions.begin()
+			)
+		),
+		thrust::make_zip_iterator(
+			thrust::make_tuple(
+				matFourmi.end(), 
+				thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+				thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
+				matTransitions.end()
+			)
+		),
+		transitionDevice()
+	);
+	return matTransitions;
+}
+
 /*
 int transition2(int index) {
 	int val = matTransitions[index];
@@ -471,7 +539,7 @@ int main() {
 	}
 	
 	// Mise à jour de la matrice
-	matFourmi = updateStates(matFourmi);
+	matFourmi = updateStatesHost(matFourmi);
 	
 	// Création de la matrice intermédiaire
 	thrust::host_vector <int> matTransitions;
@@ -488,13 +556,15 @@ int main() {
 		
 		cout << "\nMatrice temps" << i << endl;
 		
-		//thrust::transform(matFourmi.begin(), matFourmi.end(), matTransitions.begin(), transition);
+		// Transition 1
+		matTransitions = transitionHost(matFourmi, matTransitions);
 		cout << "\nMatrice temporaire" << endl;
 		printMatrix(matTransitions);
 		
+		// Transition 2
 		//thrust::transform(matTransitions.begin(), matTransitions.end(), matFourmi.begin(), transition2);
 		
-		matFourmi = updateStates(matFourmi);
+		matFourmi = updateStatesHost(matFourmi);
 		printMatrix(matFourmi);
 		
 		system("pause");
