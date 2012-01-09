@@ -283,34 +283,47 @@ struct transition1 {
 	}
 };
 
-/*
-int transition2(int index) {
-	int val = matTransitions[index];
-	bool isDeparture = val != -1;
-	int indexFourmi = indexFourmiVoisine(index);
-	bool isArrival = indexFourmi != -1;
 
-	if (isDeparture) {
-		if (val > -1) //cas déplacement
-			return ACCESSIBLE;
-		else	//cas dépot
-			return GRAIN;
-	}
-	else if (isArrival) {
-		if (matTransitions[indexFourmi] > -1) { //cas déplacement
-			if (matfourmi[index] == ACCESSIBLE) //cas déplacement simple
-				return matfourmi[indexFourmi]; 
-			else if (matfourmi[index] == GRAIN) //cas ramassage
-				return TRANSIT;
+struct transition2 {
+
+	template <typename Tuple>
+	__host__ __device__
+	void operator() (Tuple t) {
+	
+		int blocOriginal = thrust::get<0>(t); // matFourmi[index]
+		int blocTransitions = thrust::get<1>(t); //matTransitions[indexFourmi]
+		int blocArrivee =  thrust::get<2>(t); // matFourmi[indexFourmi]
+		int blocAtLeft = thrust::get<3>(t);
+		int blocAtRight = thrust::get<4>(t);
+		int blocAtTop = thrust::get<5>(t);
+		int blocAtBottom = thrust::get<6>(t);
+		int blocAtFront = thrust::get<7>(t);
+		int blocAtBack = thrust::get<8>(t);
+	
+		bool isDeparture = blocOriginal != -1;
+		int indexFourmi = indexFourmiVoisine(index);
+		bool isArrival = indexFourmi != -1;
+
+		if (isDeparture) {
+			if (bloc > -1) //cas déplacement
+				thrust::get<9>(t) = ACCESSIBLE;
+			else	//cas dépot
+				thrust::get<9>(t) = GRAIN;
 		}
-		else if (matTransitions[indexFourmi] < -1) {	//cas dépot
-			return FOURMI;
+		else if (isArrival) {
+			if (blocTransitions > -1) { //cas déplacement
+				if (blocOriginal == ACCESSIBLE) //cas déplacement simple
+					thrust::get<9>(t) = blocArrivee; 
+				else if (blocOriginal == GRAIN) //cas ramassage
+					thrust::get<9>(t) = TRANSIT;
+			}
+			else if (blocTransitions < -1)	//cas dépot
+				thrust::get<9>(t) = FOURMI;
+		}
 		else
-			cout << "ERREUR DE MERDE" << endl;
+			thrust::get<9>(t) = blocOriginal;
 	}
-	else
-		return matfourmi[index];
-}*/
+};
 
 
 int main() {
@@ -438,7 +451,8 @@ int main() {
 		printMatrix(matTransitions);
 		
 		// Transition 2
-		/*thrust::for_each(
+		/*
+		thrust::for_each(
 			thrust::make_zip_iterator(
 				thrust::make_tuple(
 					matTransitions.begin(),
@@ -466,7 +480,7 @@ int main() {
 			transition1()
 		);*/
 		
-		matFourmi = updateStatesHost(matFourmi);
+		//matFourmi = updateStatesHost(matFourmi);
 		printMatrix(matFourmi);
 		
 		system("pause");
