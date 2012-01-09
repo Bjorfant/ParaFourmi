@@ -242,7 +242,10 @@ __host__ __device__
 	};
 
 
-// On a besoin de
+/*Cette fonction permet de determiner les intention d'action de toutes les fourmis présentes dans la matrice.
+Les actions ne sont pas effectuées sur la matrice principale, elles sont simplement renseigner.
+On créé ainsi une matrice supplémentaire indiquant les mouvements qui interviendront à l'étape suivante.
+*/
 struct transition1 {
 
 	template <typename Tuple>
@@ -342,7 +345,8 @@ int main() {
 	thrust::host_vector <int> bottomIndexes(tailleTotale);
 	thrust::host_vector <int> frontIndexes(tailleTotale);
 	thrust::host_vector <int> backIndexes(tailleTotale);
-	 
+	
+	//création des vecteurs contenant les indices décalés du vecteur principal
 	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
 	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
 	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
@@ -352,6 +356,7 @@ int main() {
 	
 	
 	//Première mise à jour de la matrice
+	//ici, on créé des listes décalées pour pouvoir acceder à tous les éléments voisins d'un élément particulier
 	thrust::for_each(
 		thrust::make_zip_iterator(
 			thrust::make_tuple(
