@@ -144,22 +144,22 @@ int indexFourmiVoisine(int index,
 ) {
 	if (!isOnRightBorder(index))
 		if (matTransitionsBlocAtRight == index || matTransitionsBlocAtRight == -1*index-2)
-			return index+1;
+			return GET_RIGHT(index);
 	if (!isOnLeftBorder(index))
 		if (matTransitionsBlocAtLeft == index || matTransitionsBlocAtLeft == -1*index-2)
-			return index-1;
+			return GET_LEFT(index);
 	if (!isOnTopBorder(index))
 		if (matTransitionsBlocAtTop == index || matTransitionsBlocAtTop == -1*index-2)
-			return index-taille;
+			return GET_TOP(index);
 	if (!isOnBottomBorder(index))
 		if (matTransitionsBlocAtBottom == index || matTransitionsBlocAtBottom == -1*index-2)
-			return index+taille;
+			return GET_BOTTOM(index);
 	if (!isOnFrontBorder(index)) // A reformuler
 		if (matTransitionsBlocAtFront == index || matTransitionsBlocAtFront == -1*index-2)
-			return index+taille*taille;
+			return GET_FRONT(index);
 	if (!isOnBackBorder(index)) // A reformuler
 		if (matTransitionsBlocAtBack == index || matTransitionsBlocAtBack == -1*index-2)
-			return index-taille*taille;
+			return GET_BACK(index);
 	return -1;
 }
 
