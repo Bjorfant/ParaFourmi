@@ -134,7 +134,7 @@ int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, 
 
 
 __host__ __device__
-int indexFourmiVoisine(int index,
+int indexFourmiArrivante(int index,
 			int matTransitionsBlocAtLeft,
 			int matTransitionsBlocAtRight,
 			int matTransitionsBlocAtTop, 
@@ -339,7 +339,7 @@ struct transition2 {
 	int operator() (Tuple1 t1, Tuple2 t2) {
 		
 		int index = thrust::get<0>(t1);
-		int blocOriginal = thrust::get<1>(t2); // matFourmi[index]
+		int blocOriginal = thrust::get<1>(t1); // matFourmi[index]
 		
 		
 		//int blocTransitions = thrust::get<1>(t); //matTransitions[indexFourmi]
@@ -360,8 +360,8 @@ struct transition2 {
 		int matTransitionsBlocAtFront = thrust::get<5>(t2);
 		int matTransitionsBlocAtBack = thrust::get<6>(t2);
 	
-		
-		int indexFourmi = indexFourmiVoisine(index, matTransitionsBlocAtLeft, matTransitionsBlocAtRight, matTransitionsBlocAtTop, matTransitionsBlocAtBottom, matTransitionsBlocAtFront, matTransitionsBlocAtBack);
+		//récupère, si elle existe, la position de la fourmi qui arrive sur la case courante
+		int indexFourmi = indexFourmiArrivante(index, matTransitionsBlocAtLeft, matTransitionsBlocAtRight, matTransitionsBlocAtTop, matTransitionsBlocAtBottom, matTransitionsBlocAtFront, matTransitionsBlocAtBack);
 		
 		bool isDeparture = blocTransition != -1;
 		bool isArrival = indexFourmi != -1;
