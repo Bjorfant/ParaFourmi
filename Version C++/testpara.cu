@@ -9,13 +9,22 @@
 
 #define taille 3
 
+#define GET_LEFT(n) (n-1)
+#define GET_RIGHT(n) (n+1)
+#define GET_TOP(n) (n-taille)
+#define GET_BOTTOM(n) (n+taille)
+#define GET_FRONT(n) (n+taille*taille)
+#define GET_BACK(n) (n-taille*taille)
+
+
+
 using namespace std;
 /*********************************************
 MODELE DE DONNEES
 *********************************************/
 
  typedef enum {
-	VIDE=0,			//une case qui est complètement isolée des blocs pleins
+	VIDE=0,			//une case qui est complÃ¨tement isolÃ©e des blocs pleins
 	ACCESSIBLE=1,	//une case qui a au moins un voisin grain
 	ACCESSIBLE_CONFLIT=2,	//une case qui est accessible et a au moins deux voisins actifs
 	GRAIN_CONFLIT=3,	//une case grain qui a au moins deux voisin actifs
@@ -31,100 +40,132 @@ FONCTIONS UTILES
 
 void printMatrix(thrust::host_vector<int> matFourmi) {
 	for(int i = 0; i < taille*taille*taille; i++) {
-		cout<< matFourmi[i] << endl;
+		cout<< matFourmi[i];
+		if (i%taille==taille-1)
+			cout << endl;
+		if (i%(taille*taille) == taille*taille-1)
+			cout << endl;
 	}
 }
 
 //retourne vrai si la case d'indice "index" est sur le bord gauche de la matrice
-
+__host__ __device__
 int isOnLeftBorder(int index) {
 	return index%taille == 0;
 }
 
 //retourne vrai si la case d'indice "index" est sur le bord droit de la matrice 
-
+__host__ __device__
 int isOnRightBorder(int index) {
 	return index%taille == taille - 1;
 }
 
-//retourne vrai si la case d'indice "index" est sur le bord supérieur de la matrice
-
+//retourne vrai si la case d'indice "index" est sur le bord supÃ©rieur de la matrice
+__host__ __device__
 int isOnTopBorder(int index) {
 	return index%(taille*taille) - taille < 0;
 }
 
-//retourne vrai si la case d'indice "index" est sur le bord inférieur de la matrice
-
+//retourne vrai si la case d'indice "index" est sur le bord infÃ©rieur de la matrice
+__host__ __device__
 int isOnBottomBorder(int index) {
 	return index%(taille*taille) + taille >= taille*taille;
 }
 
 //retourne vrai si la case d'indice "index" est sur le bord avant de la matrice 
-
+__host__ __device__
 int isOnFrontBorder(int index) {
 	return index + (taille*taille) >= taille*taille*taille;
 }
 
-//retourne vrai si la case d'indice "index" est sur le bord arrière de la matrice
-
+//retourne vrai si la case d'indice "index" est sur le bord arriÃ¨re de la matrice
+__host__ __device__
 int isOnBackBorder(int index) {
 	return index < taille*taille;
 }
 
 
-//décale un indice d'un vecteur d'une certaine valeur. 
-//Permet de créer un vecteur de mappage pour décaller un vecteur de façon cyclique
+//dÃ©cale un indice d'un vecteur d'une certaine valeur. 
+//Permet de crÃ©er un vecteur de mappage pour dÃ©caller un vecteur de faÃ§on cyclique
 struct moveIndex {
 	const int delta, maxIndex;
 
-	//la stucture prend le décalage à appliquer ainsi que l'indice maximum du vecteur
+	//la stucture prend le dÃ©calage Ã  appliquer ainsi que l'indice maximum du vecteur
 	moveIndex(int _delta, int _maxIndex) : delta(_delta), maxIndex(_maxIndex) {}
 
 	__host__ __device__
 	int operator()(int index){
-		return (index + delta)%maxIndex;
+		int val = (index + delta)%maxIndex;
+		if (val<0)
+			return val+maxIndex;
+		else
+			return val;
 	}
 };
 
-
-int deplacement_alea(vector <int> voisins) {
-	if (voisins.size() >= 1)
-		return voisins[0];
-	else
-		return -1;
+__host__ __device__
+int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
+	if (!isOnLeftBorder(index)) { 
+		if (blocAtLeft==type)
+			return GET_LEFT(index);
+	}
+	if (!isOnRightBorder(index)) {
+		if (blocAtRight==type)
+			return GET_RIGHT(index);
+	}
+	if (!isOnTopBorder(index)) {
+		if (blocAtLeft==type)
+			return GET_TOP(index);
+	}
+	if (!isOnBottomBorder(index)) {
+		if (blocAtLeft==type)
+			return GET_BOTTOM(index);
+	}
+	if (!isOnFrontBorder(index)) {
+		if (blocAtLeft==type)
+			return GET_FRONT(index);
+	}
+	if (!isOnBackBorder(index)) {
+		if (blocAtLeft==type)
+			return GET_BACK(index);
+	}
+	return -1;
 }
 
-int deplacement_alea_new(int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack) {
-	return blocAtLeft;
-}
 
-
-/*
-int indexFourmiVoisine(int index, , vector<int> &matTransitions) {
+__host__ __device__
+int indexFourmiVoisine(int index,
+			int matTransitionsBlocAtLeft,
+			int matTransitionsBlocAtRight,
+			int matTransitionsBlocAtTop, 
+			int matTransitionsBlocAtBottom,
+			int matTransitionsBlocAtFront,
+			int matTransitionsBlocAtBack
+) {
 	if (!isOnRightBorder(index))
-		if (matTransitions[index+1] == index || matTransitions[index+1] == -1*index-2)
+		if (matTransitionsBlocAtRight == index || matTransitionsBlocAtRight == -1*index-2)
 			return index+1;
 	if (!isOnLeftBorder(index))
-		if (matTransitions[index-1] == index || matTransitions[index-1] == -1*index-2)
+		if (matTransitionsBlocAtLeft == index || matTransitionsBlocAtLeft == -1*index-2)
 			return index-1;
 	if (!isOnTopBorder(index))
-		if (matTransitions[index-taille] == index || matTransitions[index-taille] == -1*index-2)
+		if (matTransitionsBlocAtTop == index || matTransitionsBlocAtTop == -1*index-2)
 			return index-taille;
 	if (!isOnBottomBorder(index))
-		if (matTransitions[index+taille] == index || matTransitions[index+taille] == -1*index-2)
+		if (matTransitionsBlocAtBottom == index || matTransitionsBlocAtBottom == -1*index-2)
 			return index+taille;
 	if (!isOnFrontBorder(index)) // A reformuler
-		if (matTransitions[index+taille**2] == index || matTransitions[index+taille**2] == -1*index-2)
-			return index+taille**2;
+		if (matTransitionsBlocAtFront == index || matTransitionsBlocAtFront == -1*index-2)
+			return index+taille*taille;
 	if (!isOnBackBorder(index)) // A reformuler
-		if (matTransitions[index-taille**2] == index || matTransitions[index-taille**2] == -1*index-2)
-			return index-taille**2;
+		if (matTransitionsBlocAtBack == index || matTransitionsBlocAtBack == -1*index-2)
+			return index-taille*taille;
 	return -1;
-}*/
+}
 
 
-//genère une matrice aléatoire constituée de grains et de bloc accessibles 
-//cette matrice nécéssite d'être retravaillée par la suite pour la cohérence des données
+//genÃ¨re une matrice alÃ©atoire constituÃ©e de grains et de bloc accessibles 
+//cette matrice nÃ©cÃ©ssite d'Ãªtre retravaillÃ©e par la suite pour la cohÃ©rence des donnÃ©es
 struct genereMatrix {
 	__host__ __device__
 	int operator()(int bloc) {
@@ -137,8 +178,9 @@ struct genereMatrix {
 };
 
 
-//retourne le nombre de voisins actifs dans l'entourage de la case à la position "index" dans la matrice
+//retourne le nombre de voisins actifs dans l'entourage de la case Ã  la position "index" dans la matrice
 //un voisin actif est une fourmi simple ou une fourmi transportant un bloc
+__host__ __device__
 int getNbVoisinsActifs(int index, int left, int right, int top, int bottom, int front, int back) {
 	int nb = 0;
 	if (!isOnLeftBorder(index)) {
@@ -169,26 +211,30 @@ int getNbVoisinsActifs(int index, int left, int right, int top, int bottom, int 
 }
 
 //retourne vrai si la case d'indice "index" est accessible 
+__host__ __device__
 bool isAccessible(int index, int left, int right, int top, int bottom, int front, int back) {
+	
+	bool isAccessible = false;
+	
 	if (!isOnLeftBorder(index)) { 
-		return left == GRAIN || left == GRAIN_CONFLIT;
+		isAccessible |= left == GRAIN || left == GRAIN_CONFLIT;
 	}
 	if (!isOnRightBorder(index)) {
-		return right == GRAIN || right == GRAIN_CONFLIT;
+		isAccessible |= right == GRAIN || right == GRAIN_CONFLIT;
 	}
 	if (!isOnTopBorder(index)) {
-		return top == GRAIN || top == GRAIN_CONFLIT;
+		isAccessible |= top == GRAIN || top == GRAIN_CONFLIT;
 	}
 	if (!isOnBottomBorder(index)) {
-		return bottom == GRAIN || bottom == GRAIN_CONFLIT;
+		isAccessible |= bottom == GRAIN || bottom == GRAIN_CONFLIT;
 	}
 	if (!isOnFrontBorder(index)) {
-		return front == GRAIN || front == GRAIN_CONFLIT;
+		isAccessible |= front == GRAIN || front == GRAIN_CONFLIT;
 	}
 	if (!isOnBackBorder(index)) {
-		return back == GRAIN || back == GRAIN_CONFLIT;
+		isAccessible |= back == GRAIN || back == GRAIN_CONFLIT;
 	}
-	return false;
+	return isAccessible;
 }
 
 
@@ -197,9 +243,9 @@ bool isAccessible(int index, int left, int right, int top, int bottom, int front
 FONCTIONS PRINCIPALES DES BOUCLES DE SIMULATION
 *********************************************/
 
-//la fonction updateStates sert à garder l'intégrité des données présentes dans la matrice
-//on vérifie ici que tous les états sont cohérents vis à vis du modèle adopté
-//elle prend en paramètres un tuple de 8 valeurs dont :
+//la fonction updateStates sert Ã  garder l'intÃ©gritÃ© des donnÃ©es prÃ©sentes dans la matrice
+//on vÃ©rifie ici que tous les Ã©tats sont cohÃ©rents vis Ã  vis du modÃ¨le adoptÃ©
+//elle prend en paramÃ¨tres un tuple de 8 valeurs dont :
 //- l'indice auquel on se trouve dans la matrice
 //- la valeur du bloc courant 
 //- les 6 valeurs des des blocs voisins
@@ -217,111 +263,157 @@ __host__ __device__
 		int blocAtFront = thrust::get<6>(t);
 		int blocAtBack = thrust::get<7>(t);
 
-		//dans le cas ou le bloc courant est vide ou accessible on vérifie que ses prorpiétés correspondent bien à son état
+		//dans le cas ou le bloc courant est vide ou accessible on vÃ©rifie que ses prorpiÃ©tÃ©s correspondent bien Ã  son Ã©tat
 		if(bloc == ACCESSIBLE || bloc == ACCESSIBLE_CONFLIT) {
 			if(!isAccessible(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack))
-			thrust::get<8>(t) = VIDE; 
+				thrust::get<8>(t) = VIDE; 
 			else {
-			if(getNbVoisinsActifs(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack) > 1)
-			thrust::get<8>(t) = ACCESSIBLE_CONFLIT;
-			else
-			thrust::get<8>(t) = ACCESSIBLE;
+				if(getNbVoisinsActifs(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack) > 1)
+					thrust::get<8>(t) = ACCESSIBLE_CONFLIT;
+				else
+					thrust::get<8>(t) = ACCESSIBLE;
 			}
 		} else if (bloc == GRAIN || bloc == GRAIN_CONFLIT) {
-			//Dans le cas ou le bloc est un grain ou du plein il faut vérifier que ses propriétés correspondent bien à son état 
+			//Dans le cas ou le bloc est un grain ou du plein il faut vÃ©rifier que ses propriÃ©tÃ©s correspondent bien Ã  son Ã©tat 
 			if (getNbVoisinsActifs(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack) > 1)
-			thrust::get<8>(t) = GRAIN_CONFLIT;
+				thrust::get<8>(t) = GRAIN_CONFLIT;
 			else
-			thrust::get<8>(t) = GRAIN;
+				thrust::get<8>(t) = GRAIN;
 		} else {
-			//si le bloc est de type fourmi ou transit alors il ne change pas d'état 
-			//on retourne sa valeur inchangée
+			//si le bloc est de type fourmi ou transit alors il ne change pas d'Ã©tat 
+			//on retourne sa valeur inchangÃ©e
 			thrust::get<8>(t) = bloc;
 		}
 	}
 	};
 
 
-/*Cette fonction permet de determiner les intention d'action de toutes les fourmis présentes dans la matrice.
-Les actions ne sont pas effectuées sur la matrice principale, elles sont simplement renseigner.
-On créé ainsi une matrice supplémentaire indiquant les mouvements qui interviendront à l'étape suivante.
+/*Cette fonction permet de determiner les intention d'action de toutes les fourmis prÃ©sentes dans la matrice.
+Les actions ne sont pas effectuÃ©es sur la matrice principale, elles sont simplement renseigner.
+On crÃ©Ã© ainsi une matrice supplÃ©mentaire indiquant les mouvements qui interviendront Ã  l'Ã©tape suivante.
 */
 struct transition1 {
 
 	template <typename Tuple>
 	__host__ __device__
-	void operator() (Tuple t) {
+	int operator() (Tuple t) {
 	
-		int bloc = thrust::get<0>(t);
-		int blocAtLeft = thrust::get<1>(t);
-		int blocAtRight = thrust::get<2>(t);
-		int blocAtTop = thrust::get<3>(t);
-		int blocAtBottom = thrust::get<4>(t);
-		int blocAtFront = thrust::get<5>(t);
-		int blocAtBack = thrust::get<6>(t);
+		int index = thrust::get<0>(t);
+		int bloc = thrust::get<1>(t);
+		int blocAtLeft = thrust::get<2>(t);
+		int blocAtRight = thrust::get<3>(t);
+		int blocAtTop = thrust::get<4>(t);
+		int blocAtBottom = thrust::get<5>(t);
+		int blocAtFront = thrust::get<6>(t);
+		int blocAtBack = thrust::get<7>(t);
 		
-		int choix = rand() % 2;
+		int choix = 0;
 		if (bloc==FOURMI || bloc==TRANSIT) {
-			if (choix==0) { //Déplacement
-				thrust::get<7>(t) = deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack);
+			if (choix==0) { //DÃ©placement
+				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
 			}
 			else if (choix==1 && bloc == FOURMI) { //Ramassage
 				//vector <int> tmp;
 				//tmp.push_back(GRAIN);
 				//vector <int> voisins = listeVoisins(index, tmp);
-				thrust::get<7>(t) = deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack);
+				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, GRAIN);
 			}
-			else if (choix==1 && bloc == TRANSIT) { //Dépot
-				if (deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack)==-1)
-					thrust::get<7>(t) = -1;
+			else if (choix==1 && bloc == TRANSIT) { //DÃ©pot
+				if (destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE)==-1)
+					return -1;
 				else
-					thrust::get<7>(t) = -1*deplacement_alea_new(blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack)-2;
+					return -1*destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE)-2;
 			}
 		}
 		else
-			thrust::get<7>(t) = -1;
+			return -1;
+		return -1;
 	}
 };
 
 
 struct transition2 {
 
-	template <typename Tuple>
+	template <typename Tuple1,typename Tuple2>
 	__host__ __device__
-	void operator() (Tuple t) {
+	int operator() (Tuple1 t1, Tuple2 t2) {
+		
+		int index = thrust::get<0>(t1);
+		int blocOriginal = thrust::get<1>(t2); // matFourmi[index]
+		
+		
+		//int blocTransitions = thrust::get<1>(t); //matTransitions[indexFourmi]
+		//int blocArrivee =  thrust::get<2>(t); // matFourmi[indexFourmi]
+		
+		int matFourmiBlocAtLeft = thrust::get<2>(t1);
+		int matFourmiBlocAtRight = thrust::get<3>(t1);
+		int matFourmiBlocAtTop = thrust::get<4>(t1);
+		int matFourmiBlocAtBottom = thrust::get<5>(t1);
+		int matFourmiBlocAtFront = thrust::get<6>(t1);
+		int matFourmiBlocAtBack = thrust::get<7>(t1);
+		
+		int blocTransition = thrust::get<0>(t2);
+		int matTransitionsBlocAtLeft = thrust::get<1>(t2);
+		int matTransitionsBlocAtRight = thrust::get<2>(t2);
+		int matTransitionsBlocAtTop = thrust::get<3>(t2);
+		int matTransitionsBlocAtBottom = thrust::get<4>(t2);
+		int matTransitionsBlocAtFront = thrust::get<5>(t2);
+		int matTransitionsBlocAtBack = thrust::get<6>(t2);
 	
-		int blocOriginal = thrust::get<0>(t); // matFourmi[index]
-		int blocTransitions = thrust::get<1>(t); //matTransitions[indexFourmi]
-		int blocArrivee =  thrust::get<2>(t); // matFourmi[indexFourmi]
-		int blocAtLeft = thrust::get<3>(t);
-		int blocAtRight = thrust::get<4>(t);
-		int blocAtTop = thrust::get<5>(t);
-		int blocAtBottom = thrust::get<6>(t);
-		int blocAtFront = thrust::get<7>(t);
-		int blocAtBack = thrust::get<8>(t);
-	
-		bool isDeparture = blocOriginal != -1;
-		int indexFourmi = indexFourmiVoisine(index);
+		
+		int indexFourmi = indexFourmiVoisine(index, matTransitionsBlocAtLeft, matTransitionsBlocAtRight, matTransitionsBlocAtTop, matTransitionsBlocAtBottom, matTransitionsBlocAtFront, matTransitionsBlocAtBack);
+		
+		bool isDeparture = blocTransition != -1;
 		bool isArrival = indexFourmi != -1;
+		
+		int blocTransitions = 0;
+		int blocArrivee = 0;
+		
+		if (indexFourmi == GET_LEFT(index)) {
+			blocTransitions = matTransitionsBlocAtLeft;
+			blocArrivee = matFourmiBlocAtLeft;
+		}
+		else if (indexFourmi == GET_RIGHT(index)) {
+			blocTransitions = matTransitionsBlocAtRight;
+			blocArrivee = matFourmiBlocAtRight;
+		}
+		else if (indexFourmi == GET_TOP(index)) {
+			blocTransitions = matTransitionsBlocAtTop;
+			blocArrivee = matFourmiBlocAtTop;
+		}
+		else if (indexFourmi == GET_BOTTOM(index)) {
+			blocTransitions = matTransitionsBlocAtBottom;
+			blocArrivee = matFourmiBlocAtBottom;
+		}
+		else if (indexFourmi == GET_FRONT(index)) {
+			blocTransitions = matTransitionsBlocAtFront;
+			blocArrivee = matFourmiBlocAtFront;
+		}
+		else if (indexFourmi == GET_BACK(index)) {
+			blocTransitions = matTransitionsBlocAtBack;
+			blocArrivee = matFourmiBlocAtBack;
+		}
 
 		if (isDeparture) {
-			if (bloc > -1) //cas déplacement
-				thrust::get<9>(t) = ACCESSIBLE;
-			else	//cas dépot
-				thrust::get<9>(t) = GRAIN;
+			if (blocOriginal > -1) //cas dÃ©placement
+				return ACCESSIBLE;
+			else	//cas dÃ©pot
+				return GRAIN;
 		}
 		else if (isArrival) {
-			if (blocTransitions > -1) { //cas déplacement
-				if (blocOriginal == ACCESSIBLE) //cas déplacement simple
-					thrust::get<9>(t) = blocArrivee; 
+			if (blocTransitions > -1) { //cas dÃ©placement
+				if (blocOriginal == ACCESSIBLE) //cas dÃ©placement simple
+					return blocArrivee; 
 				else if (blocOriginal == GRAIN) //cas ramassage
-					thrust::get<9>(t) = TRANSIT;
+					return TRANSIT;
 			}
-			else if (blocTransitions < -1)	//cas dépot
-				thrust::get<9>(t) = FOURMI;
+			else if (blocTransitions < -1)	//cas dÃ©pot
+				return FOURMI;
 		}
 		else
-			thrust::get<9>(t) = blocOriginal;
+			return blocOriginal;
+		
+		return 1;
 	}
 };
 
@@ -334,7 +426,7 @@ int main() {
 	t1 = clock();
 	
 	
-	// Génération de la matrice
+	// GÃ©nÃ©ration de la matrice
 	thrust::host_vector<int> matFourmi(taille*taille*taille);
 	thrust::generate(matFourmi.begin(), matFourmi.end(), rand);
 	thrust::transform(matFourmi.begin(), matFourmi.end(), matFourmi.begin(), genereMatrix());
@@ -347,7 +439,7 @@ int main() {
 	}
 	
 
-	// Création des matrices décalées
+	// CrÃ©ation des matrices dÃ©calÃ©es
 	int tailleTotale = matFourmi.size();
 	thrust::counting_iterator<int> begin(0);
 	thrust::counting_iterator<int> end(tailleTotale);
@@ -359,7 +451,7 @@ int main() {
 	thrust::host_vector <int> frontIndexes(tailleTotale);
 	thrust::host_vector <int> backIndexes(tailleTotale);
 	
-	//création des vecteurs contenant les indices décalés du vecteur principal
+	//crÃ©ation des vecteurs contenant les indices dÃ©calÃ©s du vecteur principal
 	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
 	thrust::transform(begin, end, rightIndexes.begin(), moveIndex(1 ,tailleTotale));
 	thrust::transform(begin, end, topIndexes.begin(), moveIndex(-taille ,tailleTotale));
@@ -368,8 +460,8 @@ int main() {
 	thrust::transform(begin, end, backIndexes.begin(), moveIndex(-taille*taille ,tailleTotale));
 	
 	
-	//Première mise à jour de la matrice
-	//ici, on créé des listes décalées pour pouvoir acceder à tous les éléments voisins d'un élément particulier
+	//PremiÃ¨re mise Ã  jour de la matrice
+	//ici, on crÃ©Ã© des listes dÃ©calÃ©es pour pouvoir acceder Ã  tous les Ã©lÃ©ments voisins d'un Ã©lÃ©ment particulier
 	thrust::for_each(
 		thrust::make_zip_iterator(
 			thrust::make_tuple(
@@ -400,85 +492,96 @@ int main() {
 		updateStates()
 	);
 	
-	// Création de la matrice intermédiaire
-	thrust::host_vector <int> matTransitions;
+	// CrÃ©ation de la matrice intermÃ©diaire
+	thrust::host_vector <int> matTransitions(tailleTotale);
 	thrust::fill(matTransitions.begin(), matTransitions.end(), 0);
 
 	cout << "Matrice initiale" << endl;
 	printMatrix(matFourmi);
 	
-	// Demande du nombre d'étapes à l'utilisateur
+	// Demande du nombre d'Ã©tapes Ã  l'utilisateur
 	int nbEtapes;
 	cout << "Combien d'etapes voulez vous realiser ?" << endl;
 	cin >> nbEtapes;
 	
 	
-	// Boucle principale des étapes
+	// Boucle principale des Ã©tapes
 	for (int i=0 ; i<nbEtapes ; i++) {
 		cout << "Etape " << i << endl;
 		
-		cout << "\nMatrice temps" << i << endl;
-		
 		// Transition 1
-		thrust::for_each(
+		thrust::transform(
 			thrust::make_zip_iterator(
 				thrust::make_tuple(
+					begin,
 					matFourmi.begin(),
 					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
-					matTransitions.begin()
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin())
 				)
 			),
 			thrust::make_zip_iterator(
 				thrust::make_tuple(
+					end,
 					matFourmi.end(), 
 					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
 					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
-					matTransitions.end()
+					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end())
 				)
 			),
+			matTransitions.begin(),
 			transition1()
 		);
 		cout << "\nMatrice temporaire" << endl;
 		printMatrix(matTransitions);
 		
 		// Transition 2
-		/*
-		thrust::for_each(
+		
+		thrust::transform(
 			thrust::make_zip_iterator(
-				thrust::make_tuple(
-					matTransitions.begin(),
-					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin()), 
-					matFourmi.begin()
-				)
+					thrust::make_tuple(
+						begin,
+						matFourmi.begin(),
+						thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.begin()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.begin()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.begin()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.begin()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.begin()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.begin())
+					)
 			),
 			thrust::make_zip_iterator(
-				thrust::make_tuple(
-					matTransitions.end(), 
-					thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
-					thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end()), 
-					matFourmi.end()
-				)
+					thrust::make_tuple(
+						end,
+						matFourmi.end(),
+						thrust::make_permutation_iterator(matFourmi.begin(), leftIndexes.end()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), rightIndexes.end()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), topIndexes.end()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), bottomIndexes.end()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), frontIndexes.end()), 
+						thrust::make_permutation_iterator(matFourmi.begin(), backIndexes.end())
+					)
 			),
-			transition1()
-		);*/
+			thrust::make_zip_iterator(
+					thrust::make_tuple(
+						matTransitions.begin(),
+						thrust::make_permutation_iterator(matTransitions.begin(), leftIndexes.begin()), 
+						thrust::make_permutation_iterator(matTransitions.begin(), rightIndexes.begin()), 
+						thrust::make_permutation_iterator(matTransitions.begin(), topIndexes.begin()), 
+						thrust::make_permutation_iterator(matTransitions.begin(), bottomIndexes.begin()), 
+						thrust::make_permutation_iterator(matTransitions.begin(), frontIndexes.begin()), 
+						thrust::make_permutation_iterator(matTransitions.begin(), backIndexes.begin())
+					)
+			),
+			matFourmi.begin(),
+			transition2()
+		);
 		
 		//matFourmi = updateStatesHost(matFourmi);
 		printMatrix(matFourmi);
@@ -487,11 +590,11 @@ int main() {
 	}
 	
 	t2 = clock() - t1;
-	cout << "Temps écoulé : " << t2 << endl;
+	cout << "Temps Ã©coulÃ© : " << t2 << endl;
 
 	return 0;
 }
 
 /*
-nvcc --machine 32 -ccbin "C:\Program Files\Microsoft Visual Studio 10.0\VC\bin"  -I "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" testpara.cu -o testpara
+nvcc --machine 32 -ccbin "C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\bin"  -I "C:\Program Files (x86)\NVIDIA GPU Computing Toolkit\CUDA\v3.2\include" testpara.cu -o testpara
 */
