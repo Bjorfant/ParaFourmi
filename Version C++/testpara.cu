@@ -3,6 +3,9 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/random.h> 
+#include <thrust/random/uniform_real_distribution.h> 
+#include <thrust/random/normal_distribution.h> 
 #include <iostream>
 #include <vector>
 #include <cstdlib>
@@ -104,32 +107,67 @@ struct moveIndex {
 };
 
 __host__ __device__
+int alea(int val) {
+	thrust::minstd_rand rng;
+	thrust::uniform_real_distribution<float> dist(0.0f, 154698.0f);
+	
+	rng.discard(val);
+	return dist(rng);
+}
+
+__host__ __device__
 int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
+	
+	int choices[6] = {1, 2, 3, 4, 5, 6};
+	int nbAccessibles = 0;
 	if (!isOnLeftBorder(index)) { 
-		if (blocAtLeft==type)
-			return GET_LEFT(index);
+		if (blocAtLeft==type) {
+			choices[nbAccessibles] = GET_LEFT(index);
+			nbAccessibles++;
+		}
 	}
 	if (!isOnRightBorder(index)) {
-		if (blocAtRight==type)
-			return GET_RIGHT(index);
+		if (blocAtRight==type){
+			choices[nbAccessibles] = GET_RIGHT(index);
+			nbAccessibles++;
+		}
 	}
 	if (!isOnTopBorder(index)) {
-		if (blocAtLeft==type)
-			return GET_TOP(index);
+		if (blocAtLeft==type){
+			choices[nbAccessibles] = GET_TOP(index);
+			nbAccessibles++;
+		}
 	}
 	if (!isOnBottomBorder(index)) {
-		if (blocAtLeft==type)
-			return GET_BOTTOM(index);
+		if (blocAtLeft==type){
+			choices[nbAccessibles] = GET_BOTTOM(index);
+			nbAccessibles++;
+		}
 	}
 	if (!isOnFrontBorder(index)) {
-		if (blocAtLeft==type)
-			return GET_FRONT(index);
+		if (blocAtLeft==type){
+			choices[nbAccessibles] = GET_FRONT(index);
+			nbAccessibles++;
+		}
 	}
+	
 	if (!isOnBackBorder(index)) {
-		if (blocAtLeft==type)
-			return GET_BACK(index);
+		if (blocAtLeft==type){
+			choices[nbAccessibles] = GET_BACK(index);
+			nbAccessibles++;
+		}
 	}
-	return -1;
+	
+	//cas où il n'y a pas de voisins accessible
+	if(nbAccessibles == 0) {
+		return -1;
+	}
+	int randomvalue = alea(index+blocAtLeft+blocAtRight+blocAtTop+blocAtBottom+blocAtFront+blocAtBack);
+	int value = randomvalue % nbAccessibles;
+	
+	
+	return choices[value];
+
 }
 
 
@@ -142,12 +180,12 @@ int indexFourmiArrivante(int index,
 			int matTransitionsBlocAtFront,
 			int matTransitionsBlocAtBack
 ) {
-	if (!isOnRightBorder(index))
-		if (matTransitionsBlocAtRight == index || matTransitionsBlocAtRight == -1*index-2)
-			return GET_RIGHT(index);
 	if (!isOnLeftBorder(index))
 		if (matTransitionsBlocAtLeft == index || matTransitionsBlocAtLeft == -1*index-2)
 			return GET_LEFT(index);
+	if (!isOnRightBorder(index))
+		if (matTransitionsBlocAtRight == index || matTransitionsBlocAtRight == -1*index-2)
+			return GET_RIGHT(index);
 	if (!isOnTopBorder(index))
 		if (matTransitionsBlocAtTop == index || matTransitionsBlocAtTop == -1*index-2)
 			return GET_TOP(index);
@@ -262,7 +300,7 @@ __host__ __device__
 		int blocAtBottom = thrust::get<5>(t);
 		int blocAtFront = thrust::get<6>(t);
 		int blocAtBack = thrust::get<7>(t);
-
+		
 		//dans le cas ou le bloc courant est vide ou accessible on vérifie que ses prorpiétés correspondent bien à son état
 		if(bloc == ACCESSIBLE || bloc == ACCESSIBLE_CONFLIT) {
 			if(!isAccessible(index, blocAtLeft, blocAtRight, blocAtTop, blocAtBottom, blocAtFront, blocAtBack))
@@ -307,7 +345,7 @@ struct transition1 {
 		int blocAtFront = thrust::get<6>(t);
 		int blocAtBack = thrust::get<7>(t);
 		
-		int choix = 0;
+		int choix = alea(index+bloc+blocAtLeft+blocAtRight+blocAtTop+blocAtBottom+blocAtFront+blocAtBack) %2;
 		if (bloc==FOURMI || bloc==TRANSIT) {
 			if (choix==0) { //Déplacement
 				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
@@ -363,7 +401,7 @@ struct transition2 {
 		//récupère, si elle existe, la position de la fourmi qui arrive sur la case courante
 		int indexFourmi = indexFourmiArrivante(index, matTransitionsBlocAtLeft, matTransitionsBlocAtRight, matTransitionsBlocAtTop, matTransitionsBlocAtBottom, matTransitionsBlocAtFront, matTransitionsBlocAtBack);
 		
-		bool isDeparture = blocTransition != -1;
+		int isDeparture = blocTransition != -1;
 		bool isArrival = indexFourmi != -1;
 		
 		int blocTransitions = 0;
@@ -434,7 +472,7 @@ int main() {
 	// Placement d'une fourmi
 	int nbFourmis = 1;
 	for (int i = 0 ; i<nbFourmis ; i++) {
-		int randvalue = rand() % taille*taille*taille;
+		int randvalue = 4;//rand() % taille*taille*taille;
 		matFourmi[randvalue] = FOURMI;
 	}
 	
@@ -500,10 +538,11 @@ int main() {
 	printMatrix(matFourmi);
 	
 	// Demande du nombre d'étapes à l'utilisateur
-	int nbEtapes;
-	cout << "Combien d'etapes voulez vous realiser ?" << endl;
-	cin >> nbEtapes;
+	int nbEtapes = 1;
+	//cout << "Combien d'etapes voulez vous realiser ?" << endl;
+	//cin >> nbEtapes;
 	
+	thrust::host_vector<int> matFourmi2(tailleTotale);
 	
 	// Boucle principale des étapes
 	for (int i=0 ; i<nbEtapes ; i++) {
@@ -579,11 +618,42 @@ int main() {
 						thrust::make_permutation_iterator(matTransitions.begin(), backIndexes.begin())
 					)
 			),
-			matFourmi.begin(),
+			matFourmi2.begin(),
 			transition2()
 		);
 		
-		//matFourmi = updateStatesHost(matFourmi);
+		//Mise à jour périodique
+		//ici, on créé des listes décalées pour pouvoir acceder à tous les éléments voisins d'un élément particulier
+		thrust::for_each(
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					begin,
+					matFourmi2.begin(),
+					thrust::make_permutation_iterator(matFourmi2.begin(), leftIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), rightIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), topIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), bottomIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), frontIndexes.begin()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), backIndexes.begin()), 
+					matFourmi.begin()
+				)
+			),
+			thrust::make_zip_iterator(
+				thrust::make_tuple(
+					end,
+					matFourmi2.end(), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), leftIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), rightIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), topIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), bottomIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), frontIndexes.end()), 
+					thrust::make_permutation_iterator(matFourmi2.begin(), backIndexes.end()), 
+					matFourmi.end()
+				)
+			),
+			updateStates()
+		);
+		
 		printMatrix(matFourmi);
 		
 		system("pause");
