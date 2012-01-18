@@ -10,7 +10,9 @@
 #include <vector>
 #include <cstdlib>
 
-#define taille 3
+#define taille 200
+#define debug false
+#define nbEtapes 100
 
 #define GET_LEFT(n) (n-1)
 #define GET_RIGHT(n) (n+1)
@@ -115,10 +117,10 @@ int alea(int val) {
 	return dist(rng);
 }
 
-__host__ __device__
-int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
+__device__
+int destination_alea(int index) {//, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
 	
-	int choices[6] = {1, 2, 3, 4, 5, 6};
+	/*int choices[6] = {1, 2, 3, 4, 5, 6};
 	int nbAccessibles = 0;
 	if (!isOnLeftBorder(index)) { 
 		if (blocAtLeft==type) {
@@ -166,7 +168,8 @@ int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, 
 	int value = randomvalue % nbAccessibles;
 	
 	
-	return choices[value];
+	return choices[value];*/
+	return -1;
 
 }
 
@@ -333,7 +336,7 @@ On créé ainsi une matrice supplémentaire indiquant les mouvements qui intervi
 struct transition1 {
 
 	template <typename Tuple>
-	__host__ __device__
+	__device__
 	int operator() (Tuple t) {
 	
 		int index = thrust::get<0>(t);
@@ -347,8 +350,9 @@ struct transition1 {
 		
 		int choix = alea(index+bloc+blocAtLeft+blocAtRight+blocAtTop+blocAtBottom+blocAtFront+blocAtBack) %2;
 		if (bloc==FOURMI || bloc==TRANSIT) {
-			if (choix==0) { //Déplacement
-				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
+		
+			if (choix==0) {//Déplacement
+				return destination_alea(index);//,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
 			}
 			else if (choix==1 && bloc == FOURMI) { //Ramassage
 				//vector <int> tmp;
@@ -373,10 +377,10 @@ struct transition1 {
 struct transition2 {
 
 	template <typename Tuple1,typename Tuple2>
-	__host__ __device__
+	__device__
 	int operator() (Tuple1 t1, Tuple2 t2) {
 		
-		int index = thrust::get<0>(t1);
+		/*int index = thrust::get<0>(t1);
 		int blocOriginal = thrust::get<1>(t1); // matFourmi[index]
 		
 		
@@ -449,7 +453,7 @@ struct transition2 {
 				return FOURMI;
 		}
 		else
-			return blocOriginal;
+			return blocOriginal;*/
 		
 		return 1;
 	}
@@ -459,35 +463,35 @@ struct transition2 {
 int main() {
 	
 	srand ( time(NULL) );
-	clock_t t1;
-	clock_t t2;
-	t1 = clock();
+	clock_t endwait;
 	
+	endwait = clock();
 	
 	// Génération de la matrice
-	thrust::host_vector<int> matFourmi(taille*taille*taille);
-	thrust::generate(matFourmi.begin(), matFourmi.end(), rand);
-	thrust::transform(matFourmi.begin(), matFourmi.end(), matFourmi.begin(), genereMatrix());
+	thrust::host_vector<int> matFourmiHost(taille*taille*taille);
+	
+	thrust::generate(matFourmiHost.begin(), matFourmiHost.end(), rand);
+	thrust::transform(matFourmiHost.begin(), matFourmiHost.end(), matFourmiHost.begin(), genereMatrix());
 	
 	// Placement d'une fourmi
 	int nbFourmis = 1;
 	for (int i = 0 ; i<nbFourmis ; i++) {
 		int randvalue = 4;//rand() % taille*taille*taille;
-		matFourmi[randvalue] = FOURMI;
+		matFourmiHost[randvalue] = FOURMI;
 	}
-	
 
+	thrust::device_vector<int> matFourmi = matFourmiHost;
 	// Création des matrices décalées
 	int tailleTotale = matFourmi.size();
 	thrust::counting_iterator<int> begin(0);
 	thrust::counting_iterator<int> end(tailleTotale);
 
-	thrust::host_vector <int> rightIndexes(tailleTotale);
-	thrust::host_vector <int> leftIndexes(tailleTotale);
-	thrust::host_vector <int> topIndexes(tailleTotale);
-	thrust::host_vector <int> bottomIndexes(tailleTotale);
-	thrust::host_vector <int> frontIndexes(tailleTotale);
-	thrust::host_vector <int> backIndexes(tailleTotale);
+	thrust::device_vector <int> rightIndexes(tailleTotale);
+	thrust::device_vector <int> leftIndexes(tailleTotale);
+	thrust::device_vector <int> topIndexes(tailleTotale);
+	thrust::device_vector <int> bottomIndexes(tailleTotale);
+	thrust::device_vector <int> frontIndexes(tailleTotale);
+	thrust::device_vector <int> backIndexes(tailleTotale);
 	
 	//création des vecteurs contenant les indices décalés du vecteur principal
 	thrust::transform(begin, end, leftIndexes.begin(), moveIndex(-1 ,tailleTotale));
@@ -531,22 +535,30 @@ int main() {
 	);
 	
 	// Création de la matrice intermédiaire
-	thrust::host_vector <int> matTransitions(tailleTotale);
+	thrust::device_vector <int> matTransitions(tailleTotale);
 	thrust::fill(matTransitions.begin(), matTransitions.end(), 0);
 
-	cout << "Matrice initiale" << endl;
-	printMatrix(matFourmi);
+	if (debug) {
+		cout << "Matrice initiale" << endl;
+		printMatrix(matFourmi);
+	}
 	
 	// Demande du nombre d'étapes à l'utilisateur
-	int nbEtapes = 1;
+	//int nbEtapes = 1;
 	//cout << "Combien d'etapes voulez vous realiser ?" << endl;
 	//cin >> nbEtapes;
 	
-	thrust::host_vector<int> matFourmi2(tailleTotale);
+	thrust::device_vector<int> matFourmi2(tailleTotale);
+	
+	
+	
+	cout << "Temps écoulé : " << clock() - endwait << endl;
+	endwait = clock();
 	
 	// Boucle principale des étapes
 	for (int i=0 ; i<nbEtapes ; i++) {
-		cout << "Etape " << i << endl;
+		if (debug)
+			cout << "Etape " << i << endl;
 		
 		// Transition 1
 		thrust::transform(
@@ -577,9 +589,12 @@ int main() {
 			matTransitions.begin(),
 			transition1()
 		);
-		cout << "\nMatrice temporaire" << endl;
-		printMatrix(matTransitions);
 		
+		if(debug) {
+			cout << "\nMatrice temporaire" << endl;
+			printMatrix(matTransitions);
+		}
+	
 		// Transition 2
 		
 		thrust::transform(
@@ -654,13 +669,16 @@ int main() {
 			updateStates()
 		);
 		
-		printMatrix(matFourmi);
-		
-		system("pause");
+		if (debug) {
+			printMatrix(matFourmi);
+			system("pause");
+		}
+			
 	}
 	
-	t2 = clock() - t1;
-	cout << "Temps écoulé : " << t2 << endl;
+	//t2 = clock() - t1;
+	cout << "Temps total : " << (clock() - endwait) << endl;
+	cout << "Moyenne de Temps écoulé : " << ((float)(clock() - endwait))/nbEtapes << endl;
 
 	return 0;
 }
