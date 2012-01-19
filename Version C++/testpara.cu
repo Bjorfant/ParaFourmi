@@ -10,9 +10,9 @@
 #include <vector>
 #include <cstdlib>
 
-#define taille 200
+#define taille 70
 #define debug false
-#define nbEtapes 100
+#define nbEtapes 20000
 
 #define GET_LEFT(n) (n-1)
 #define GET_RIGHT(n) (n+1)
@@ -20,6 +20,8 @@
 #define GET_BOTTOM(n) (n+taille)
 #define GET_FRONT(n) (n+taille*taille)
 #define GET_BACK(n) (n-taille*taille)
+
+#pragma warning( disable : 4503 )
 
 
 
@@ -118,9 +120,9 @@ int alea(int val) {
 }
 
 __device__
-int destination_alea(int index) {//, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
+int destination_alea(int index, int blocAtLeft, int blocAtRight, int blocAtTop, int blocAtBottom, int blocAtFront, int blocAtBack, int type) {
 	
-	/*int choices[6] = {1, 2, 3, 4, 5, 6};
+	int choices[6] = {1, 2, 3, 4, 5, 6};
 	int nbAccessibles = 0;
 	if (!isOnLeftBorder(index)) { 
 		if (blocAtLeft==type) {
@@ -167,9 +169,9 @@ int destination_alea(int index) {//, int blocAtLeft, int blocAtRight, int blocAt
 	int randomvalue = alea(index+blocAtLeft+blocAtRight+blocAtTop+blocAtBottom+blocAtFront+blocAtBack);
 	int value = randomvalue % nbAccessibles;
 	
-	
-	return choices[value];*/
-	return -1;
+	int val = choices[value];
+	return val;
+	//return -1;
 
 }
 
@@ -348,11 +350,13 @@ struct transition1 {
 		int blocAtFront = thrust::get<6>(t);
 		int blocAtBack = thrust::get<7>(t);
 		
+		int tmpchoix = 0;
+		
 		int choix = alea(index+bloc+blocAtLeft+blocAtRight+blocAtTop+blocAtBottom+blocAtFront+blocAtBack) %2;
 		if (bloc==FOURMI || bloc==TRANSIT) {
 		
 			if (choix==0) {//Déplacement
-				return destination_alea(index);//,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
+				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
 			}
 			else if (choix==1 && bloc == FOURMI) { //Ramassage
 				//vector <int> tmp;
@@ -361,10 +365,11 @@ struct transition1 {
 				return destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, GRAIN);
 			}
 			else if (choix==1 && bloc == TRANSIT) { //Dépot
-				if (destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE)==-1)
+				tmpchoix = destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE);
+				if (tmpchoix == -1)
 					return -1;
 				else
-					return -1*destination_alea(index,blocAtLeft,blocAtRight,blocAtTop,blocAtBottom,blocAtFront,blocAtBack, ACCESSIBLE)-2;
+					return -1*tmpchoix-2;
 			}
 		}
 		else
@@ -380,7 +385,7 @@ struct transition2 {
 	__device__
 	int operator() (Tuple1 t1, Tuple2 t2) {
 		
-		/*int index = thrust::get<0>(t1);
+		int index = thrust::get<0>(t1);
 		int blocOriginal = thrust::get<1>(t1); // matFourmi[index]
 		
 		
@@ -453,7 +458,7 @@ struct transition2 {
 				return FOURMI;
 		}
 		else
-			return blocOriginal;*/
+			return blocOriginal;
 		
 		return 1;
 	}
@@ -469,18 +474,18 @@ int main() {
 	
 	// Génération de la matrice
 	thrust::host_vector<int> matFourmiHost(taille*taille*taille);
-	
 	thrust::generate(matFourmiHost.begin(), matFourmiHost.end(), rand);
-	thrust::transform(matFourmiHost.begin(), matFourmiHost.end(), matFourmiHost.begin(), genereMatrix());
+	
+	thrust::device_vector<int> matFourmi = matFourmiHost;
+	thrust::transform(matFourmi.begin(), matFourmi.end(), matFourmi.begin(), genereMatrix());
 	
 	// Placement d'une fourmi
 	int nbFourmis = 1;
 	for (int i = 0 ; i<nbFourmis ; i++) {
 		int randvalue = 4;//rand() % taille*taille*taille;
-		matFourmiHost[randvalue] = FOURMI;
+		matFourmi[randvalue] = FOURMI;
 	}
 
-	thrust::device_vector<int> matFourmi = matFourmiHost;
 	// Création des matrices décalées
 	int tailleTotale = matFourmi.size();
 	thrust::counting_iterator<int> begin(0);
